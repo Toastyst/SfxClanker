@@ -38,7 +38,7 @@ def preview_audio(path: str) -> None:
     try:
         pygame.mixer.init()
         pygame.mixer.music.load(path)
-        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.set_volume(1.0)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
