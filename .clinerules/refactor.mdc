@@ -1,0 +1,14 @@
+# Refactor Rules for sfxClanker
+
+When refactoring sfxClanker.py:
+- Always import from utils/ instead of duplicating code.
+- Use SFXLibrary from utils.sfx_library, not inline.
+- Use build_search_query and enhance_query from utils.query_builder.
+- Use process_audio and preview_audio from utils.audio_processor.
+- Add type hints to all functions and methods (e.g., def func(arg: str) -> bool).
+- Use TypedDict for item dicts if needed.
+- Keep main under 250 lines by extracting to utils.
+- Run pytest and mypy after changes to ensure no regressions.
+- Do not modify prompts.json or .clinerules/helloknight_sfx_library.mdc.
+
+Refactor goals: modularity, testability, type safety.

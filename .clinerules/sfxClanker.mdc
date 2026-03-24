@@ -1,0 +1,26 @@
+# Cline Rules for sfxClanker.py
+
+You are building sfxClanker.py — a one-button FreeSound sound-pack generator for HelloKnight.
+
+MANDATORY RULES:
+- Keep main code under 250 lines, modular with utils/, dark retro theme.
+- One big "GENERATE SOUND PACK" button is the main flow.
+- Use requests for FreeSound API (pip packages: requests, pydub, pytest, mypy).
+- Save API key once in freesound_key.txt (create if missing, load silently).
+- Every search = enhance_query(build_search_query(original prompt)) + CC0 filter.
+- Always sort by downloads + rating.
+- Normalize with ffmpeg loudnorm when checkbox checked.
+- Preview plays with winsound (Windows).
+- Exact filenames as in design doc.
+- After generation show clickable preview list.
+- Use utils/ modules: sfx_library, query_builder, audio_processor.
+- Add type hints, TypedDict for data structures.
+- Run pytest and mypy before changes.
+
+Never add extra panels, batch upload, or complexity. One button = one perfect pack.
+
+# Logging Rule
+For iterative testing and feedback, rely on log files (generation_log.txt, failed_queries.txt) rather than console output to avoid high token usage. Use console only for brief status, detailed errors in logs.
+
+# Modularity Rule
+Extract logic to utils/: SFXLibrary in sfx_library.py, query funcs in query_builder.py, audio in audio_processor.py. Import and use in main, no duplication.

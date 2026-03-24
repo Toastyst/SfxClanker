@@ -1,0 +1,74 @@
+{
+  "Combat_Light_Attack_Hit": {
+    "good_ids": []
+  },
+  "Combat_Heavy_Attack_Hit": {
+    "good_ids": []
+  },
+  "Combat_Parry_Success": {
+    "good_ids": []
+  },
+  "Combat_Block_Impact": {
+    "good_ids": []
+  },
+  "Combat_Roll___Dodge": {
+    "good_ids": []
+  },
+  "Combat_Stamina_Break": {
+    "good_ids": []
+  },
+  "Combat_Enemy_Hit": {
+    "good_ids": []
+  },
+  "Combat_Enemy_Death": {
+    "good_ids": []
+  },
+  "Combat_Player_Death": {
+    "good_ids": []
+  },
+  "Combat_Healing": {
+    "good_ids": []
+  },
+  "Movement_Footsteps_(stone_metal)": {
+    "good_ids": []
+  },
+  "Movement_Jump": {
+    "good_ids": []
+  },
+  "Movement_Wall_Hit___Thud": {
+    "good_ids": []
+  },
+  "Movement_Wall_Crumble___Secret_Reveal": {
+    "good_ids": []
+  },
+  "Movement_Ladder_Climb": {
+    "good_ids": []
+  },
+  "Movement_Breakable_Wall_Break": {
+    "good_ids": []
+  },
+  "Movement_Roll_Through_Gap": {
+    "good_ids": []
+  },
+  "Movement_Chasm_Wind_Ambience": {
+    "good_ids": []
+  },
+  "UI_Menu_Select___Click": {
+    "good_ids": []
+  },
+  "UI_Currency_Pickup": {
+    "good_ids": []
+  },
+  "UI_Checkpoint_Light": {
+    "good_ids": []
+  },
+  "UI_Level_Up": {
+    "good_ids": []
+  },
+  "UI_Low_Stamina_Warning": {
+    "good_ids": []
+  },
+  "UI_Death_Screen": {
+    "good_ids": []
+  }
+}

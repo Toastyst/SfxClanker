@@ -1,0 +1,9 @@
+# Shared SFX Library Rules (helloknight_sfx_gui.py)
+
+Always import SFXLibrary from helloknight_sfx_gui.py
+Use the exact 24 prompts + categories (Combat, Movement, UI).
+Never modify the prompts — only append the fixed consistency tag string.
+Filename conversion rule: lowercase + underscores, e.g.
+  "Light Attack Hit" → combat_light_attack_hit.wav
+  "Wall Crumble / Secret Reveal" → movement_wall_crumble_secret_reveal.wav
+Keep category names lowercase in filenames.

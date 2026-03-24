@@ -1,0 +1,13 @@
+# Testing Rules for sfxClanker
+
+When testing sfxClanker:
+- Run pytest on tests/ to verify utils functionality.
+- Run mypy . to check type hints.
+- Mock external dependencies (requests, pydub) in tests.
+- Ensure query tests match exact design strings.
+- For audio tests, mock pydub.AudioSegment.
+- Run tests before and after changes.
+- Use pytest -v for verbose output.
+- Aim for 80%+ coverage on utils.
+
+Testing goals: prevent regressions, ensure modularity works.
