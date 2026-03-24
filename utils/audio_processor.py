@@ -1,7 +1,10 @@
 import os
 import subprocess
 import shutil
-import winsound
+try:
+    import winsound
+except ImportError:
+    winsound = None
 
 def get_ffmpeg_path():
     path = shutil.which('ffmpeg')
@@ -39,4 +42,7 @@ def process_audio(input_path: str, output_path: str, normalize_flag: bool, trim:
 
 def preview_audio(path: str, volume: float = 0.5) -> None:
     # winsound can't control volume, so just play
-    winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+    if winsound:
+        winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+    else:
+        print("Preview not available on this platform")

@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
 import requests
 import subprocess
-import winsound
 import os
 import re
 import threading
