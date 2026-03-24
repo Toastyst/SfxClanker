@@ -10,7 +10,7 @@ def get_ffmpeg_path():
     path = shutil.which('ffmpeg')
     if path:
         return path
-    hardcoded = 'ffmpeg\\ffmpeg-8.1-essentials_build\\bin\\ffmpeg.exe'
+    hardcoded = os.path.join(os.path.dirname(__file__), '..', 'ffmpeg', 'ffmpeg-8.1-essentials_build', 'bin', f'ffmpeg{"" if os.name != "nt" else ".exe"}')
     if os.path.exists(hardcoded):
         return hardcoded
     return None
