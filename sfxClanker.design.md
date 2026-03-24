@@ -2,6 +2,7 @@
 **Version:** 1.1 (March 2026)
 **Status:** Modular one-button FreeSound batch downloader for HelloKnight with testing and automation
 **Goal:** Single “Generate Sound Pack” button that downloads all 24 SFX with perfect dark-fantasy Souls-like consistency, names them correctly, normalizes them, and drops them in a folder. Includes headless mode, randomization, and comprehensive testing.
+**Repository:** https://github.com/Toastyst/SfxClanker
 
 ## 1. Project Overview
 - Modular Python GUI (tkinter) using utils/ modules for maintainability.

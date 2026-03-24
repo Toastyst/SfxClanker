@@ -11,3 +11,7 @@ When testing sfxClanker:
 - Aim for 80%+ coverage on utils.
 
 Testing goals: prevent regressions, ensure modularity works.
+
+# Git Rules for Testing
+- Before testing: git status, git pull origin main
+- After testing: git add ., git commit -m "Test: description", git push origin main

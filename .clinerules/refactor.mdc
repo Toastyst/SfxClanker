@@ -12,3 +12,7 @@ When refactoring sfxClanker.py:
 - Do not modify prompts.json or .clinerules/helloknight_sfx_library.mdc.
 
 Refactor goals: modularity, testability, type safety.
+
+# Git Rules for Refactoring
+- Before refactoring: git status, git pull origin main
+- After refactoring: pytest tests/, mypy ., git add ., git commit -m "Refactor: description", git push origin main

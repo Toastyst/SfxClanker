@@ -24,3 +24,12 @@ For iterative testing and feedback, rely on log files (generation_log.txt, faile
 
 # Modularity Rule
 Extract logic to utils/: SFXLibrary in sfx_library.py, query funcs in query_builder.py, audio in audio_processor.py. Import and use in main, no duplication.
+
+# Git Rules
+- Repo: https://github.com/Toastyst/SfxClanker
+- Branch: main (default)
+- Commit messages: Descriptive, start with action (Add, Fix, Refactor, etc.), include component if relevant
+- Before changes: git status, git pull origin main
+- After changes: git add ., git commit -m "message", git push origin main
+- Test before commit: pytest tests/, mypy .
+- Feature branches: git checkout -b feature/name, merge via PR if collaborative
