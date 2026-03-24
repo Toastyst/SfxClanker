@@ -1,5 +1,7 @@
 # SFX Clanker
 
+[![CI](https://github.com/Toastyst/SfxClanker/actions/workflows/ci.yml/badge.svg)](https://github.com/Toastyst/SfxClanker/actions/workflows/ci.yml)
+
 ## Overview
 
 SFX Clanker is a simple Python GUI application that generates a complete 24-SFX sound pack for HelloKnight by automatically downloading and processing audio from FreeSound. It ensures uniform dark fantasy Souls-like flavor across all sounds, with one-click generation, category selection, and post-generation preview.
