@@ -13,25 +13,25 @@ import random
 import shutil
 import time
 from datetime import datetime
-from typing import List, Dict, Tuple, TypedDict
+from typing import List, Dict, Tuple, TypedDict, Any, Callable
 from utils.sfx_library import SFXLibrary
 from utils.query_builder import build_search_query, enhance_query
 from utils.audio_processor import process_audio, preview_audio
 from utils.cache import load_cache, save_cache, CacheEntry, get_sound_by_id
 
-def load_api_key():
+def load_api_key() -> str | None:
     try:
         with open('freesound_key.txt', 'r') as f:
             return f.read().strip()
     except:
         return None
 
-def save_api_key(key):
+def save_api_key(key: str) -> None:
     with open('freesound_key.txt', 'w') as f:
         f.write(key)
 
 # WEIGHTED SEARCH using query_prompts.py logic
-def weighted_search_freesound(query: str, token: str) -> Tuple[List[Dict], bool]:
+def weighted_search_freesound(query: str, token: str) -> Tuple[List[Dict[str, Any]], bool]:
     base_url = 'https://freesound.org/apiv2/search/text/'
     params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
     for _ in range(1):
@@ -49,7 +49,7 @@ def weighted_search_freesound(query: str, token: str) -> Tuple[List[Dict], bool]
             pass
     return [], False
 
-def download_sfx(result, path):
+def download_sfx(result: Dict[str, Any], path: str) -> bool:
     urls = [result['previews'].get('preview-hq-mp3'), result['previews'].get('preview-lq-mp3')]
     for url in urls:
         if url:
@@ -63,22 +63,22 @@ def download_sfx(result, path):
                 pass
     return False
 
-def generate_filename(category, name):
+def generate_filename(category: str, name: str) -> str:
     clean = re.sub(r'[^a-zA-Z0-9\s/]', '', name).lower().replace(' ', '_').replace('/', '_')
     return f"{category}_{clean}.wav"
 
-def log_message(output_dir, msg):
+def log_message(output_dir: str, msg: str) -> None:
     log_path = os.path.join(output_dir, 'generation_log.txt')
     with open(log_path, 'a') as f:
         f.write(msg + '\n')
 
-def log_failed(output_dir, queries):
+def log_failed(output_dir: str, queries: List[str]) -> None:
     path = os.path.join(output_dir, 'failed_queries.txt')
     with open(path, 'a') as f:
         f.write(f"Failed queries: {', '.join(queries)}\n")
 
 # RANDOM MODE: pick from top 5 for funny packs
-def process_item(item, api_key, normalize, random_mode, output_dir, console_callback, trim=False):
+def process_item(item: Dict[str, Any], api_key: str, normalize: bool, random_mode: bool, output_dir: str, console_callback: Callable[[str], None], trim: bool = False) -> bool:
     console_callback("─" * 37)
     console_callback(f"=== {item['filename']} ===")
     cache = load_cache(api_key)
@@ -159,7 +159,7 @@ def process_item(item, api_key, normalize, random_mode, output_dir, console_call
     console_callback(f"Generated {item['filename']}")
     return True
 
-def run_headless():
+def run_headless() -> None:
     parser = argparse.ArgumentParser(description='SFX Clanker Headless Mode')
     parser.add_argument('--output', required=True, help='Output directory')
     parser.add_argument('--normalize', action='store_true', help='Normalize audio')
@@ -188,7 +188,7 @@ def run_headless():
             for name in sfx.get_names(cat):
                 prompt = sfx.get_prompt(cat, name)
                 filename = generate_filename(cat, name)
-                items.append({'category': cat.lower(), 'name': name, 'fallbacks': prompt['fallbacks'], 'id': prompt.get('id'), 'filename': filename, 'status': 'pending', 'path': os.path.join(output_dir, filename)})
+                items.append({'category': cat.lower(), 'name': name, 'fallbacks': prompt['fallbacks'] if prompt else [], 'id': prompt.get('id') if prompt else None, 'filename': filename, 'status': 'pending', 'path': os.path.join(output_dir, filename)})
 
     if not items:
         print("Error: No items for selected categories")
@@ -214,7 +214,7 @@ def run_headless():
     sys.exit(0 if success_count > 0 else 1)
 
 class SFXClankerGUI(tk.Tk):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         try:
             self.title("SFX Clanker - HelloKnight Pack Generator")
@@ -232,7 +232,7 @@ class SFXClankerGUI(tk.Tk):
             messagebox.showerror("Initialization Error", f"Failed to start: {e}")
             self.destroy()
 
-    def create_widgets(self):
+    def create_widgets(self) -> None:
         # Left frame: checklist
         left_frame = tk.Frame(self, bg='#2b2b2b')
         left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
@@ -270,18 +270,18 @@ class SFXClankerGUI(tk.Tk):
         self.console.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, padx=10, pady=5)
         self.console.insert(tk.END, "Console output:\n")
 
-    def select_all(self):
+    def select_all(self) -> None:
         all_selected = all(var.get() for var in self.check_vars.values())
         for var in self.check_vars.values():
             var.set(not all_selected)
 
-    def choose_output_dir(self):
+    def choose_output_dir(self) -> None:
         dir = filedialog.askdirectory()
         if dir:
             self.output_dir = dir
             self.status_label.config(text=f"Output: {dir}")
 
-    def generate_pack(self):
+    def generate_pack(self) -> None:
         if not self.output_dir:
             messagebox.showerror("Error", "Choose output folder first")
             return
@@ -298,7 +298,7 @@ class SFXClankerGUI(tk.Tk):
                 for name in self.sfx.get_names(cat):
                     prompt = self.sfx.get_prompt(cat, name)
                     filename = generate_filename(cat, name)
-                    items.append({'category': cat.lower(), 'name': name, 'fallbacks': prompt['fallbacks'], 'id': prompt.get('id'), 'filename': filename, 'status': 'pending', 'path': os.path.join(self.output_dir, filename)})
+                    items.append({'category': cat.lower(), 'name': name, 'fallbacks': prompt['fallbacks'] if prompt else [], 'id': prompt.get('id') if prompt else None, 'filename': filename, 'status': 'pending', 'path': os.path.join(self.output_dir, filename)})
         if not items:
             messagebox.showerror("Error", "Select at least one category")
             return
@@ -312,7 +312,7 @@ class SFXClankerGUI(tk.Tk):
         # Thread
         def worker():
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                futures_to_items = {executor.submit(process_item, item, api_key, self.normalize.get(), self.randomize.get(), self.output_dir, lambda msg: self.after(0, lambda: self.update_console(msg)), self.trim.get()): item for item in items}
+                futures_to_items = {executor.submit(process_item, item, api_key, self.normalize.get(), self.randomize.get(), self.output_dir, lambda msg: self.after(0, lambda: self.update_console(msg)), self.trim.get()): item for item in items}  # type: ignore
                 completed = 0
                 for future in concurrent.futures.as_completed(futures_to_items):
                     item = futures_to_items[future]
@@ -332,21 +332,21 @@ class SFXClankerGUI(tk.Tk):
             # Populate preview
             for item in items:
                 if item['status'] == 'success':
-                    btn = tk.Button(self.preview_list, text=f"Play {item['filename']}", command=lambda p=item['path']: self.on_preview(p), bg='#4a4a4a', fg='white')
+                    btn = tk.Button(self.preview_list, text=f"Play {item['filename']}", command=lambda p=item['path']: self.on_preview(p), bg='#4a4a4a', fg='white')  # type: ignore
                     btn.pack(fill=tk.X, pady=2)
             # Summary
             success_count = sum(1 for i in items if i['status'] == 'success')
             messagebox.showinfo("Done", f"Generated {success_count}/{len(items)} SFX. Check {self.output_dir}")
         threading.Thread(target=worker, daemon=True).start()
 
-    def update_console(self, msg):
+    def update_console(self, msg: str) -> None:
         self.console.insert(tk.END, msg + "\n")
         self.console.see(tk.END)
 
-    def on_preview(self, path):
+    def on_preview(self, path: str) -> None:
         preview_audio(path)
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # type: ignore
     if len(sys.argv) > 1 and sys.argv[1] == '--headless':
         run_headless()
     else:

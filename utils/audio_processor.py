@@ -1,12 +1,13 @@
 import os
 import subprocess
 import shutil
+
 try:
     import winsound
 except ImportError:
-    winsound = None
+    winsound = None  # type: ignore
 
-def get_ffmpeg_path():
+def get_ffmpeg_path() -> str | None:
     path = shutil.which('ffmpeg')
     if path:
         return path

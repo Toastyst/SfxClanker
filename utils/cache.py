@@ -1,14 +1,14 @@
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, TypedDict
+from typing import Dict, List, TypedDict, Any
 import requests
 
 class CacheEntry(TypedDict):
     good_ids: List[str]
     last_updated: str
 
-def get_sound_by_id(sound_id: str, token: str) -> Dict:
+def get_sound_by_id(sound_id: str, token: str) -> Dict[str, Any] | None:
     url = f'https://freesound.org/apiv2/sounds/{sound_id}/'
     params = {'token': token, 'fields': 'id,name,previews,duration,num_downloads'}
     for _ in range(3):
@@ -16,7 +16,7 @@ def get_sound_by_id(sound_id: str, token: str) -> Dict:
             resp = requests.get(url, params=params, timeout=60)
             if resp.status_code == 200:
                 result = resp.json()
-                return result
+                return result  # type: ignore
         except:
             pass
     return None
@@ -42,7 +42,7 @@ def load_cache(token: str) -> Dict[str, CacheEntry]:
     except:
         return {}
 
-def save_cache(cache: Dict[str, CacheEntry]):
+def save_cache(cache: Dict[str, CacheEntry]) -> None:
     try:
         with open('cache.json', 'w') as f:
             json.dump(cache, f, indent=2)

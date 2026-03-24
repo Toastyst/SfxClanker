@@ -1,43 +1,52 @@
 # Implementation Plan
 
 [Overview]
-Fix CI failure by making winsound import conditional and preview_audio platform-agnostic, since winsound is Windows-only and CI runs on Linux.
+Fix GitHub CI failures by addressing OS-specific imports (winsound), completing dependencies, cross-platform paths, and updating workflow actions.
 
-The codebase uses winsound for audio preview on Windows. To make tests pass on Linux CI, conditionalize the import and make preview_audio a no-op on non-Windows platforms. Add pytest skip for preview test on non-Windows. This maintains Windows functionality while enabling CI.
+The CI fails on Linux due to winsound (Windows-only). Additional issues: incomplete requirements.txt, hardcoded Windows paths, deprecated actions. This plan makes the code cross-platform, completes deps, fixes paths, updates workflow for reliable CI.
 
 [Types]
 No new types needed.
 
 [Files]
-Modified: utils/audio_processor.py (conditional winsound import, platform check in preview_audio).
-Modified: tests/test_audio_processor.py (add pytest.mark.skipif for test_preview_audio).
-Modified: sfxClanker.py (remove direct winsound import if present, rely on conditional).
+Modified: utils/audio_processor.py (conditional winsound).
+Modified: tests/test_audio_processor.py (skipif for preview test).
+Modified: requirements.txt (add all deps: requests, pydub? but no pydub, wait, code uses pydub? No, ffmpeg).
+Wait, code uses no pydub, only ffmpeg subprocess.
+Add pydub if needed? No.
+Modified: .github/workflows/ci.yml (update actions/checkout@v4, setup-python@v5).
+Modified: utils/audio_processor.py (fix hardcoded ffmpeg path to os.path.join).
+Modified: sfxClanker.py (check for hardcoded paths).
 
 No new files.
 
 [Functions]
 Modified functions:
-- preview_audio (utils/audio_processor.py): Add try/except or platform check; if not Windows or no winsound, print "Preview not available" and return.
-- test_preview_audio (tests/test_audio_processor.py): Add @pytest.mark.skipif(sys.platform != 'win32', reason="winsound Windows only").
+- preview_audio (utils/audio_processor.py): Conditional winsound, no-op on Linux.
+- get_ffmpeg_path (utils/audio_processor.py): Fix hardcoded Windows path to os.path.join(os.path.dirname(__file__), 'ffmpeg', 'bin', 'ffmpeg.exe') or use shutil.which only.
+- test_preview_audio (tests/test_audio_processor.py): Add @pytest.mark.skipif(sys.platform != 'win32', reason="Windows only").
 
-No new or removed functions.
+No new.
 
 [Classes]
-No class changes.
-
-[Dependencies]
 No changes.
 
+[Dependencies]
+Add to requirements.txt:
+types-requests==2.32.*
+pytest-mock==3.*
+(Already has requests, pytest, mypy).
+
+No new runtime deps.
+
 [Testing]
-Add skip marker to test_preview_audio for Linux CI.
-
-Update test_process_audio if needed, but already mocked.
-
-Run pytest locally to verify.
+Local pytest tests/ -v passes on Windows.
+CI will pass on Linux with skip.
 
 [Implementation Order]
-1. Update utils/audio_processor.py for conditional winsound.
-2. Update tests/test_audio_processor.py with skip marker.
-3. Update sfxClanker.py if needed.
-4. Run pytest tests/ -v to verify.
-5. git add ., commit "Fix: make winsound conditional for Linux CI", push origin main.
+1. Update utils/audio_processor.py (conditional winsound, fix hardcoded path).
+2. Update tests/test_audio_processor.py (skipif).
+3. Update requirements.txt if needed.
+4. Update .github/workflows/ci.yml (actions versions).
+5. pytest tests/ -v
+6. git add ., commit -m "Fix CI: winsound conditional, paths, workflow", git push origin main.

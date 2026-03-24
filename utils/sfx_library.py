@@ -8,7 +8,7 @@ class Prompt(TypedDict):
     id: Optional[str]
 
 class SFXLibrary:
-    def __init__(self):
+    def __init__(self) -> None:
         with open('prompts.json', 'r') as f:
             data = json.load(f)
         self.prompts: Dict[str, Dict[str, Prompt]] = {}
