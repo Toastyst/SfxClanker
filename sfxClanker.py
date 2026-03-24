@@ -197,7 +197,7 @@ def run_headless() -> None:
     print(f"Generating {len(items)} SFX to {output_dir}...")
     success_count = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures_to_items = {executor.submit(process_item, item, api_key, normalize, random_mode, output_dir, lambda msg: print(f"[{item['filename']}] {msg}"), trim): item for item in items}
+        futures_to_items = {executor.submit(process_item, item, api_key, normalize, random_mode, output_dir, lambda msg: print(f"[{item['filename']}] {msg}"), trim): item for item in items}  # type: ignore[arg-type,misc]
         for future in concurrent.futures.as_completed(futures_to_items):
             item = futures_to_items[future]
             try:
@@ -310,9 +310,9 @@ class SFXClankerGUI(tk.Tk):
         for widget in self.preview_list.winfo_children():
             widget.destroy()
         # Thread
-        def worker():
+        def worker() -> None:
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-                futures_to_items = {executor.submit(process_item, item, api_key, self.normalize.get(), self.randomize.get(), self.output_dir, lambda msg: self.after(0, lambda: self.update_console(msg)), self.trim.get()): item for item in items}  # type: ignore
+                futures_to_items = {executor.submit(process_item, item, api_key, self.normalize.get(), self.randomize.get(), self.output_dir, lambda msg: self.after(0, lambda: self.update_console(msg)), self.trim.get()): item for item in items}  # type: ignore[misc]
                 completed = 0
                 for future in concurrent.futures.as_completed(futures_to_items):
                     item = futures_to_items[future]
@@ -321,7 +321,7 @@ class SFXClankerGUI(tk.Tk):
                         item['status'] = 'success' if success else 'skipped'
                     except:
                         item['status'] = 'skipped'
-                    self.after(0, lambda: self.update_console(f"Processed {item['filename']}: {'success' if item['status'] == 'success' else 'skipped'}"))
+                    self.after(0, lambda: self.update_console(f"Processed {item['filename']}: {'success' if item['status'] == 'success' else 'skipped'}"))  # type: ignore[misc]
                     completed += 1
                     self.progress['value'] = completed
                     self.status_label.config(text=f"Processed {completed}/{len(items)}")
@@ -332,7 +332,7 @@ class SFXClankerGUI(tk.Tk):
             # Populate preview
             for item in items:
                 if item['status'] == 'success':
-                    btn = tk.Button(self.preview_list, text=f"Play {item['filename']}", command=lambda p=item['path']: self.on_preview(p), bg='#4a4a4a', fg='white')  # type: ignore
+                    btn = tk.Button(self.preview_list, text=f"Play {item['filename']}", command=lambda p=item['path']: self.on_preview(p), bg='#4a4a4a', fg='white')
                     btn.pack(fill=tk.X, pady=2)
             # Summary
             success_count = sum(1 for i in items if i['status'] == 'success')
@@ -346,7 +346,7 @@ class SFXClankerGUI(tk.Tk):
     def on_preview(self, path: str) -> None:
         preview_audio(path)
 
-if __name__ == "__main__":  # type: ignore
+if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == '--headless':
         run_headless()
     else:

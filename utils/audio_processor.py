@@ -1,11 +1,12 @@
 import os
 import subprocess
 import shutil
+import sys
 
-try:
+if sys.platform == "win32":
     import winsound
-except ImportError:
-    winsound = None  # type: ignore
+else:
+    winsound = None
 
 def get_ffmpeg_path() -> str | None:
     path = shutil.which('ffmpeg')
@@ -43,7 +44,7 @@ def process_audio(input_path: str, output_path: str, normalize_flag: bool, trim:
 
 def preview_audio(path: str, volume: float = 0.5) -> None:
     # winsound can't control volume, so just play
-    if winsound:
+    if winsound is not None:
         winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
     else:
         print("Preview not available on this platform")
