@@ -3,3 +3,6 @@ types-requests==2.32.*
 pytest==8.*
 pytest-mock==3.*
 mypy==1.*
+pydub==0.25.*
+pygame
+audioop-lts

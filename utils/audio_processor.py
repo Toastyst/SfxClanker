@@ -1,50 +1,34 @@
 import os
-import subprocess
-import shutil
-import sys
-
-if sys.platform == "win32":
-    import winsound
-else:
-    winsound = None
-
-def get_ffmpeg_path() -> str | None:
-    path = shutil.which('ffmpeg')
-    if path:
-        return path
-    hardcoded = os.path.join(os.path.dirname(__file__), '..', 'ffmpeg', 'ffmpeg-8.1-essentials_build', 'bin', f'ffmpeg{"" if os.name != "nt" else ".exe"}')
-    if os.path.exists(hardcoded):
-        return hardcoded
-    return None
+from pydub import AudioSegment
+import pygame
 
 def process_audio(input_path: str, output_path: str, normalize_flag: bool, trim: bool) -> bool | str:
     try:
-        ffmpeg_path = get_ffmpeg_path()
-        if not ffmpeg_path:
-            return "ffmpeg binary not found in PATH or bundle"
-        cmd = [ffmpeg_path, '-y', '-i', input_path, '-ar', '44100', '-ac', '1']
-        if trim and normalize_flag:
-            cmd += ['-af', 'silenceremove=1:0:-50dB,loudnorm=I=-16:LRA=11:TP=-1.5']
-        elif trim:
-            cmd += ['-af', 'silenceremove=1:0:-50dB']
-        elif normalize_flag:
-            cmd += ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5']
-        cmd.append(output_path)
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            return True
-        else:
-            err = result.stderr.strip()
-            if err:
-                return f"ffmpeg error: {err}"
-            else:
-                return "ffmpeg failed with unknown error"
+        # Load MP3 using pydub with ffmpeg backend
+        audio = AudioSegment.from_file(input_path, format="mp3")
+        # Set to 44.1kHz mono
+        audio = audio.set_frame_rate(44100).set_channels(1)
+        # Normalize to -3 dB peak
+        if normalize_flag:
+            peak_dBFS = audio.max_dBFS
+            gain = -3 - peak_dBFS
+            audio = audio.apply_gain(gain)
+        # Trim silence if enabled
+        if trim:
+            audio = audio.silenceremove(silence_len=1000, silence_thresh=-50, padding=500)
+        # Export to WAV
+        audio.export(output_path, format="wav")
+        return True
     except Exception as e:
         return str(e)
 
-def preview_audio(path: str, volume: float = 0.5) -> None:
-    # winsound can't control volume, so just play
-    if winsound is not None:
-        winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-    else:
-        print("Preview not available on this platform")
+def preview_audio(path: str) -> None:
+    try:
+        pygame.mixer.init()
+        pygame.mixer.music.load(path)
+        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+    except Exception as e:
+        print(f"Preview failed: {e}")

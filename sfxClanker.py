@@ -65,43 +65,57 @@ def log_failed(output_dir: str, queries: List[str]) -> None:
 def process_item(item: Dict[str, Any], api_key: str, normalize: bool, random_mode: bool, output_dir: str, console_callback: Callable[[str], None], trim: bool = False) -> bool:
     console_callback("─" * 37)
     console_callback(f"=== {item['filename']} ===")
-    cache = load_cache(api_key)
+    console_callback(f"Searching for {item['filename']}...")
+    cache = load_cache(api_key, skip_validate=True)
     queries = [item['name']] + item['fallbacks']
     result = None
     used_query = None
     if item.get('id'):
-        console_callback(f"Trying ID {item['id']}...")
+        console_callback(f"Query: predefined ID {item['id']}")
         result = get_sound_by_id(item['id'], api_key)
         if result:
             used_query = f"ID {item['id']}"
-            console_callback(f"Found result for ID {item['id']}: {result['name']}")
+            console_callback(f"Found 1 result")
+            console_callback(f"Picked ID {item['id']} - {result['name']}")
             is_cc0 = True  # Assume IDs are CC0
         else:
             result = None
     if not result:
         if item['filename'] in cache and cache[item['filename']].get('good_ids'):
             ids = cache[item['filename']]['good_ids'][:]
-            random.shuffle(ids)
-            for id in ids[:3]:
-                result = get_sound_by_id(id, api_key)
+            console_callback(f"Query: cache hit")
+            console_callback(f"Found {len(ids)} cached results")
+            if random_mode and ids:
+                random_id = random.choice(ids)
+                result = get_sound_by_id(random_id, api_key)
                 if result:
-                    used_query = f"Cache ID {id}"
-                    console_callback(f"Found result from cache ID {id}: {result['name']}")
+                    used_query = f"Cache ID {random_id}"
+                    console_callback(f"Picked ID {random_id} - {result['name']}")
                     is_cc0 = True
-                    break
+            else:
+                # for non-random, try top 3
+                random.shuffle(ids)
+                for id in ids[:3]:
+                    result = get_sound_by_id(id, api_key)
+                    if result:
+                        used_query = f"Cache ID {id}"
+                        console_callback(f"Picked ID {id} - {result['name']}")
+                        is_cc0 = True
+                        break
     if not result:
         for query in queries:
-            boosted = enhance_query(build_search_query(query))
+            boosted = build_search_query(query)
             log_message(output_dir, f"Query for {item['filename']}: {boosted}")
-            console_callback(f"Searching '{boosted}'...")
+            console_callback(f"Query: {boosted}")
             results, is_cc0 = weighted_search_freesound(boosted, api_key)
+            console_callback(f"Found {len(results)} results")
             if results:
                 if random_mode:
                     result = random.choice(results)
                 else:
                     result = results[0]
                 used_query = boosted
-                console_callback(f"Found result for '{boosted}': {result['name']}")
+                console_callback(f"Picked ID {result['id']} - {result['name']}")
                 break
             else:
                 is_cc0 = True  # default
@@ -118,29 +132,29 @@ def process_item(item: Dict[str, Any], api_key: str, normalize: bool, random_mod
             cache[filename]['last_updated'] = datetime.now().isoformat()
             save_cache(cache)
     if not result:
-        console_callback("→ No results")
+        console_callback("Skipped: No results")
         log_failed(output_dir, queries)
         log_message(output_dir, f"Skipped {item['filename']}: no results for any query")
         return False
     if not is_cc0:
         log_message(output_dir, f"NON-CC0: {item['filename']} ({used_query})")
     temp_path = item['path'] + '.temp'
-    console_callback(f"Downloading to {temp_path}...")
+    console_callback(f"Downloading preview...")
     if not download_sfx(result, temp_path):
-        console_callback("Download failed")
+        console_callback("Skipped: Download failed")
         log_message(output_dir, f"Skipped {item['filename']}: download failed")
         return False
-    console_callback(f"Processing audio...")
+    console_callback(f"Processing audio (normalize={normalize}, trim={trim})...")
     result_proc = process_audio(temp_path, item['path'], normalize, trim)
     if result_proc is not True:
-        console_callback(f"Process failed: {result_proc}")
+        console_callback(f"Skipped: Process failed - {result_proc}")
         log_message(output_dir, f"Skipped {item['filename']}: process failed - {result_proc}")
         if os.path.exists(temp_path):
             os.remove(temp_path)
         return False
     os.remove(temp_path)
     log_message(output_dir, f"Generated {item['filename']} (query: {used_query})")
-    console_callback(f"Generated {item['filename']}")
+    console_callback(f"Generated successfully")
     return True
 
 def run_headless() -> None:

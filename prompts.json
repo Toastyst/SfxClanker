@@ -22,5 +22,6 @@
   {"category": "UI", "name": "Checkpoint Light", "fallbacks": ["checkpoint", "fire", "bonfire", "bonfire light", "checkpoint activate", "fire ignite"]},
   {"category": "UI", "name": "Level Up", "fallbacks": ["level up", "chime", "upgrade", "character level", "upgrade sound", "power up"]},
   {"category": "UI", "name": "Low Stamina Warning", "fallbacks": ["stamina warning", "heartbeat", "breath", "stamina alert", "warning beep", "low energy"]},
-  {"category": "UI", "name": "Death Screen", "fallbacks": ["death screen", "drone", "ominous", "game over", "death music", "ominous tone"]}
+  {"category": "UI", "name": "Death Screen", "fallbacks": ["death screen", "drone", "ominous", "game over", "death music", "ominous tone"]},
+  {"category": "Test", "name": "Test Sound", "fallbacks": ["coin jingle", "beep", "click"], "id": null}
 ]
