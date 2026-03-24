@@ -20,6 +20,12 @@ Built per sfxClanker.design.md and .clinerules, under 400 lines, dark retro them
 - **Error Handling**: Retries 3x, skips failures, logs to generation_log.txt (with NON-CC0 alerts) and failed_queries.txt for debugging.
 - **Persistence**: API key saved in freesound_key.txt.
 
+## Cache System
+
+The application maintains a `cache.json` file to store up to 5 validated good sound IDs per filename for improved variety and speed on subsequent runs. IDs are validated on load: must exist, duration <4s, downloads >10, and have a preview URL. Cache is auto-populated after successful searches and saved automatically.
+
+This helps achieve consistent packs with variety across randomize runs.
+
 ## Requirements
 
 - Python 3.x (tested on 3.13)

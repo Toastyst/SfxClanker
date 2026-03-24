@@ -12,9 +12,13 @@ import sys
 import argparse
 import random
 import shutil
+import time
+from datetime import datetime
+from typing import List, Dict, Tuple, TypedDict
 from utils.sfx_library import SFXLibrary
 from utils.query_builder import build_search_query, enhance_query
 from utils.audio_processor import process_audio, preview_audio
+from utils.cache import load_cache, save_cache, CacheEntry, get_sound_by_id
 
 def load_api_key():
     try:
@@ -28,13 +32,14 @@ def save_api_key(key):
         f.write(key)
 
 # WEIGHTED SEARCH using query_prompts.py logic
-def weighted_search_freesound(query, token):
+def weighted_search_freesound(query: str, token: str) -> Tuple[List[Dict], bool]:
     base_url = 'https://freesound.org/apiv2/search/text/'
     # First try with CC0 filter
-    params_cc0 = {'token': token, 'query': query, 'filter': 'license:cc0', 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
+    params_cc0 = {'token': token, 'query': query, 'filter': 'license:"cc0"', 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
     for _ in range(1):  # one retry
         try:
             resp = requests.get(base_url, params=params_cc0, timeout=60)
+            time.sleep(1.2)
             if resp.status_code == 200:
                 data = resp.json()
                 results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 0][:5]
@@ -47,6 +52,7 @@ def weighted_search_freesound(query, token):
     for _ in range(1):
         try:
             resp = requests.get(base_url, params=params_all, timeout=60)
+            time.sleep(1.2)
             if resp.status_code == 200:
                 data = resp.json()
                 results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 5][:5]
@@ -55,19 +61,6 @@ def weighted_search_freesound(query, token):
         except:
             pass
     return [], False
-
-def get_sound_by_id(sound_id, token):
-    url = f'https://freesound.org/apiv2/sounds/{sound_id}/'
-    params = {'token': token, 'fields': 'id,name,previews,duration,num_downloads'}
-    for _ in range(3):
-        try:
-            resp = requests.get(url, params=params, timeout=60)
-            if resp.status_code == 200:
-                result = resp.json()
-                return result
-        except:
-            pass
-    return None
 
 def download_sfx(result, path):
     urls = [result['previews'].get('preview-hq-mp3'), result['previews'].get('preview-lq-mp3')]
@@ -101,6 +94,7 @@ def log_failed(output_dir, queries):
 def process_item(item, api_key, normalize, random_mode, output_dir, console_callback, trim=False):
     console_callback("─" * 37)
     console_callback(f"=== {item['filename']} ===")
+    cache = load_cache(api_key)
     queries = [item['name']] + item['fallbacks']
     result = None
     used_query = None
@@ -113,22 +107,17 @@ def process_item(item, api_key, normalize, random_mode, output_dir, console_call
             is_cc0 = True  # Assume IDs are CC0
         else:
             result = None
-    if not result and os.path.exists('cache.json'):
-        try:
-            with open('cache.json') as f:
-                cache = json.load(f)
-            if item['filename'] in cache and cache[item['filename']].get('good_ids'):
-                ids = cache[item['filename']]['good_ids'][:]
-                random.shuffle(ids)
-                for id in ids[:3]:
-                    result = get_sound_by_id(id, api_key)
-                    if result:
-                        used_query = f"Cache ID {id}"
-                        console_callback(f"Found result from cache ID {id}: {result['name']}")
-                        is_cc0 = True
-                        break
-        except:
-            pass
+    if not result:
+        if item['filename'] in cache and cache[item['filename']].get('good_ids'):
+            ids = cache[item['filename']]['good_ids'][:]
+            random.shuffle(ids)
+            for id in ids[:3]:
+                result = get_sound_by_id(id, api_key)
+                if result:
+                    used_query = f"Cache ID {id}"
+                    console_callback(f"Found result from cache ID {id}: {result['name']}")
+                    is_cc0 = True
+                    break
     if not result:
         for query in queries:
             boosted = enhance_query(build_search_query(query))
@@ -145,6 +134,18 @@ def process_item(item, api_key, normalize, random_mode, output_dir, console_call
                 break
             else:
                 is_cc0 = True  # default
+    if result and used_query and not used_query.startswith("ID ") and not used_query.startswith("Cache ID "):
+        # Populate cache with new good ID
+        filename = item['filename']
+        if filename not in cache:
+            cache[filename] = CacheEntry(good_ids=[], last_updated=datetime.now().isoformat())
+        good_ids = cache[filename]['good_ids']
+        id_str = str(result['id'])
+        if id_str not in good_ids:
+            good_ids.append(id_str)
+            cache[filename]['good_ids'] = good_ids[-5:]
+            cache[filename]['last_updated'] = datetime.now().isoformat()
+            save_cache(cache)
     if not result:
         console_callback("→ No results")
         log_failed(output_dir, queries)

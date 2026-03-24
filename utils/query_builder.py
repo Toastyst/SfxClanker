@@ -2,7 +2,7 @@ import re
 
 def build_search_query(raw_term: str) -> str:
     words = re.findall(r'\w+', raw_term.lower())
-    words = [w for w in words if len(w) >= 3][:6]
+    words = [w for w in words if len(w) >= 3][:4]
     query = ' +'.join(words)
     if any(x in raw_term.lower() for x in ['attack hit', 'sword']):
         query += ' +sword'

@@ -1,125 +1,59 @@
 # Implementation Plan
 
 [Overview]
-Create a highly optimized Cline workspace for SFXClanker by refactoring code for modularity and testability, aligning implementation with design rules (e.g., switch to pydub/simpleaudio, exact query append), enhancing .clinerules for precise guidance, and adding comprehensive testing and automation setups.
+Fix the search logic and cache system to achieve 24/24 sound packs with variety on randomize and consistency within packs.
 
-The current codebase is functional but monolithic (~350 lines in main.py), with duplicated query logic, hardcoded tokens in helpers, deps mismatch (ffmpeg vs pydub), and basic error handling. Optimization will split into utils modules, add type hints/pytest, update rules to reflect/enforce best practices, remove security risks, and introduce Cline-specific rules for common tasks like adding SFX or refactoring. This makes the project easier for Cline to maintain/extend while preserving the one-button simplicity.
+The current issue is 0 sounds due to strict CC0 filter, long queries, no rate limit delay, and empty cache. This plan updates FreeSound API calls for better results (fix filter syntax, shorter queries, delay), adds cache population (store 3-5 good IDs per sound for variety), enforces short sounds (<4s), and tests headless randomize for variety/consistency. Fits existing modular utils structure, maintains one-button flow.
 
-High-level approach: Extract utilities first, refactor main app to import them, align audio/query to specs, add tests/verification, enhance rules/docs. No feature bloat – keep under 500 total lines.
+[Types]
+No new types needed; use existing Prompt TypedDict, add CacheEntry TypedDict for cache.json.
 
-[Types]  
-Introduce type hints and TypedDict/dataclasses for better maintainability and IDE/Cline support.
+CacheEntry TypedDict:
+- filename: str
+- good_ids: List[str]  # 3-5 validated IDs
+- last_updated: str  # ISO date
 
-- from typing import TypedDict
-- class Prompt(TypedDict):
-    category: str
-    name: str
-    fallbacks: list[str]
-    id: str | None
-- class SFXItem(TypedDict):
-    category: str
-    name: str
-    fallbacks: list[str]
-    id: str | None
-    filename: str
-    path: str
-    status: str  # 'pending' | 'success' | 'skipped'
-- Add mypy type checking in tests/CI.
-
-No new enums/interfaces needed; use str literals for categories ('Combat', 'Movement', 'UI').
+Validation: IDs exist, duration <4s, downloads >10.
 
 [Files]
-Create new modular files, refactor main, delete obsolete helpers, update configs/docs.
+Update sfxClanker.py for cache save/load, search fixes; update utils/query_builder.py for shorter queries; update README for cache info; no deletions.
 
-New files:
-- requirements.txt: List deps (requests==2.32.*, pydub==0.25.*, simpleaudio==0.1.*, pytest==8.*, mypy==1.*)
-- utils/query_builder.py: Centralized query functions.
-- utils/audio_processor.py: pydub-based process/normalize/preview.
-- utils/sfx_library.py: Extracted SFXLibrary class.
-- tests/test_query_builder.py: Unit tests for queries.
-- tests/test_audio_processor.py: Mock audio tests.
-- tests/test_sfxclanker.py: Integration tests.
-- .gitignore: Ignore __pycache__, .venv, SFX PACKS/, *.txt keys/logs.
-- .clinerules/refactor.mdc: Rules for code changes.
-- .clinerules/testing.mdc: Rules for running tests/verification.
-- .mypy.ini: Basic mypy config.
-
-Modified files:
-- sfxClanker.py: Refactor to import utils, use pydub/simpleaudio, exact query append, type hints, under 250 lines.
-- .clinerules/sfxClanker.mdc: Update deps to pydub/simpleaudio, add modularity/testing rules, exact query string.
-- README.md: Add sections for testing, development workflow, requirements install.
-- prompts.json: No change (immutable per rules).
-
-Deleted files:
-- query_prompts.py: Obsolete debug script with hardcoded token.
-- cache_builder.py: Obsolete with hardcoded token; integrate cache logic optionally later.
-
-No config updates needed beyond requirements.txt.
+- Modified: sfxClanker.py (cache save, search delay, filter fix)
+- Modified: utils/query_builder.py (shorter build_search_query)
+- Modified: README.md (cache explanation)
+- Modified: tests/test_query_builder.py (new test cases)
 
 [Functions]
-Centralize duplicated logic into utils, add type hints, improve error handling.
-
-New functions:
-- utils/query_builder.py: build_search_query(raw: str) -> str, enhance_query(base: str) -> str  (exact append: "dark fantasy souls-like low reverb gritty armor medieval dark souls style")
-- utils/audio_processor.py: process_audio(input_path: str, output_path: str, normalize: bool, trim: bool) -> bool | str, preview_audio(path: str, volume: float = 0.5) -> None  (pydub + simpleaudio)
-- utils/sfx_library.py: load_prompts() -> dict[str, dict[str, Prompt]], get_prompt(cat: str, name: str) -> Prompt | None, etc.
-- tests/: test_build_search_query(), test_enhance_query(), test_process_audio(mock), etc.
+Update search and cache functions.
 
 Modified functions:
-- sfxClanker.py: generate_pack() -> use utils, concurrent.futures unchanged; process_item() -> delegate to utils; remove duplicated query/audio code.
-- Remove weighted_search_freesound, download_sfx, etc. -> move to utils/api.py if expanded.
+- weighted_search_freesound (sfxClanker.py): Fix 'license:"cc0"', add time.sleep(0.5), relax fallback downloads >5
+- process_item (sfxClanker.py): After success, append result['id'] to cache[filename]['good_ids'][:5], save cache.json
+- build_search_query (utils/query_builder.py): Limit to 4 words, optional + only for key terms
+- load_cache (new in sfxClanker.py): Load cache.json, validate IDs
 
-No functions removed; obsolete helpers deleted entirely.
+No removals.
 
 [Classes]
-Extract inline class to module, minor GUI tweaks.
-
-New classes:
-- utils/sfx_library.py: SFXLibrary (unchanged, but typed, load from json).
-
-Modified classes:
-- sfxClanker.py: SFXClankerGUI – import SFXLibrary from utils, use utils funcs, add type hints to methods (e.g., def generate_pack(self) -> None).
-
-No classes removed.
+No class changes.
 
 [Dependencies]
-Switch to design-spec deps, add dev tools.
+Add types-requests for mypy requests stubs.
 
-New packages:
-- pydub==0.25.* (audio normalize/convert, replaces ffmpeg subprocess)
-- simpleaudio==0.1.* (cross-platform preview at 50% vol, replaces ffplay/winsound)
-- pytest==8.* (testing)
-- mypy==1.* (type checking)
-
-requests==2.32.* unchanged (pip only).
-
-No version changes; pin for reproducibility.
-Remove ffmpeg bundle dep (no pip/subprocess).
-Update requirements.txt install: pip install -r requirements.txt
-
-Integration: pydub needs ffmpeg backend? No, for mp3 pydub uses ffmpeg if avail, but bundle optional or doc install.
+pip install types-requests
 
 [Testing]
-Add pytest suite for 80%+ coverage on utils, mock external (requests, audio).
+Add tests for cache save/load, new query logic, headless randomize.
 
-New test files:
-- tests/test_query_builder.py: Test query strings exact match spec.
-- tests/test_audio_processor.py: Mock pydub/simpleaudio, test normalize -3dB peak (use pydub.effects.normalize + peak check), trim silence.
-- tests/test_sfxclanker.py: Mock API responses, end-to-end headless mode.
-
-Validation: pytest -v, mypy ., coverage via pytest-cov.
-Run tests post-changes to verify no regressions.
-CI: Add .github/workflows/test.yml (pytest on push).
+- New: tests/test_cache.py (load/save, variety)
+- Modified: tests/test_query_builder.py (shorter queries)
+- Run pytest/mypy after.
 
 [Implementation Order]
-Execute changes in dependency order to avoid breakage.
+Implement search fixes first, then cache, then test.
 
-1. Create requirements.txt and pip install new deps (pydub simpleaudio pytest mypy).
-2. Create utils/ modules: query_builder.py, audio_processor.py, sfx_library.py with extracted/refactored code.
-3. Refactor sfxClanker.py: Replace inline SFXLibrary, duplicated funcs with utils imports; switch audio to pydub/simpleaudio; update query append exact.
-4. Create tests/ suite and verify pytest passes.
-5. Update .clinerules/sfxClanker.mdc (deps, utils usage rules), add .clinerules/refactor.mdc and testing.mdc.
-6. Update README.md (dev section, pip install, pytest run).
-7. Add .gitignore, .mypy.ini.
-8. Delete obsolete query_prompts.py, cache_builder.py.
-9. Run full e2e test: generate pack, verify audio/WAVs/logs.
+1. Update utils/query_builder.py for shorter queries, test.
+2. Update weighted_search_freesound in sfxClanker.py (filter, delay), test search.
+3. Add cache save/load in process_item, populate good_ids.
+4. Update tests, run pytest/mypy.
+5. Test headless randomize, verify 24/24, variety.

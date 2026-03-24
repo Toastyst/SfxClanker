@@ -27,3 +27,7 @@ def test_enhance_query():
     result = enhance_query("test query")
     expected = "test query dark fantasy souls-like low reverb gritty armor medieval dark souls style"
     assert result == expected
+
+def test_build_search_query_word_limit():
+    result = build_search_query("This is a very long query with many words")
+    assert result == "this +very +long +query"
