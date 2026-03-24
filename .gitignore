@@ -6,6 +6,7 @@ venv/
 env/
 SFX PACKS/
 *.txt
+!requirements.txt
 .pytest_cache/
 .mypy_cache/
 .cache/
