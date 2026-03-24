@@ -1,8 +1,12 @@
 import json
 import os
+import time
 from datetime import datetime
-from typing import Dict, List, TypedDict, Any
+from typing import Dict, List, TypedDict, Any, Optional
 import requests
+from utils.sfx_library import SFXLibrary
+from utils.search import weighted_search_freesound
+from utils.query_builder import build_search_query
 
 class CacheEntry(TypedDict):
     good_ids: List[str]
@@ -14,6 +18,7 @@ def get_sound_by_id(sound_id: str, token: str) -> Dict[str, Any] | None:
     for _ in range(3):
         try:
             resp = requests.get(url, params=params, timeout=60)
+            time.sleep(1.5)
             if resp.status_code == 200:
                 result = resp.json()
                 return result  # type: ignore
@@ -48,3 +53,52 @@ def save_cache(cache: Dict[str, CacheEntry]) -> None:
             json.dump(cache, f, indent=2)
     except:
         pass
+
+def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'UI']) -> None:
+    sfx = SFXLibrary()
+    cache = load_cache(token)
+    count = 0
+    for cat in categories:
+        if cat not in sfx.prompts:
+            continue
+        for name in sfx.get_names(cat):
+            if count >= 5:
+                break
+            filename = f"{cat.lower()}_{name.lower().replace(' ', '_').replace('/', '_')}.wav"
+            if filename in cache and len(cache[filename]['good_ids']) >= 8:
+                continue
+            prompt = sfx.get_prompt(cat, name)
+            if not prompt:
+                continue
+            queries = [name] + [f"{name} {fb}" for fb in prompt['fallbacks'][:4]]
+            good_ids = set()
+            for query in queries:
+                if len(good_ids) >= 8:
+                    break
+                simple_query = build_search_query(query)
+                # First try CC0
+                results = weighted_search_freesound(simple_query, token, prefer_cc0=True)
+                for r in results:
+                    id_str = str(r['id'])
+                    if id_str not in good_ids:
+                        good_ids.add(id_str)
+                        if len(good_ids) >= 8:
+                            break
+                if len(good_ids) < 8:
+                    # Then try without CC0 filter
+                    results = weighted_search_freesound(simple_query, token, prefer_cc0=False)
+                    for r in results:
+                        id_str = str(r['id'])
+                        if id_str not in good_ids:
+                            good_ids.add(id_str)
+                            if len(good_ids) >= 8:
+                                break
+            good_ids_list = list(good_ids)
+            if good_ids_list:
+                cache[filename] = {'good_ids': good_ids_list, 'last_updated': datetime.now().isoformat()}
+                print(f"{filename}: {len(good_ids_list)} good_ids (e.g. {good_ids_list[:3]})")
+                count += 1
+            else:
+                print(f"{filename}: 0 good_ids")
+                count += 1
+    save_cache(cache)

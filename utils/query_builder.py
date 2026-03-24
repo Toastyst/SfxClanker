@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 def build_search_query(raw_term: str) -> str:
     words = re.findall(r'\w+', raw_term.lower())
@@ -14,3 +15,15 @@ def build_search_query(raw_term: str) -> str:
 
 def enhance_query(query: str) -> str:
     return query + " dark fantasy souls-like low reverb gritty armor medieval dark souls style"
+
+def get_progressive_queries(name: str, fallbacks: List[str]) -> List[str]:
+    queries = [name] + fallbacks
+    flavor_terms = ["dark", "fantasy", "souls-like", "low reverb", "gritty", "armor", "medieval", "dark souls style"]
+    progressive = []
+    for base in queries:
+        simple = build_search_query(base)
+        progressive.append(simple)
+        for i in range(1, len(flavor_terms) + 1):
+            enhanced = simple + " +" + " +".join(flavor_terms[:i])
+            progressive.append(enhanced)
+    return progressive

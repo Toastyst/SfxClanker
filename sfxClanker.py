@@ -17,7 +17,8 @@ from typing import List, Dict, Tuple, TypedDict, Any, Callable
 from utils.sfx_library import SFXLibrary
 from utils.query_builder import build_search_query, enhance_query
 from utils.audio_processor import process_audio, preview_audio
-from utils.cache import load_cache, save_cache, CacheEntry, get_sound_by_id
+from utils.cache import load_cache, save_cache, CacheEntry, get_sound_by_id, populate_cache
+from utils.search import weighted_search_freesound
 
 def load_api_key() -> str | None:
     try:
@@ -30,24 +31,7 @@ def save_api_key(key: str) -> None:
     with open('freesound_key.txt', 'w') as f:
         f.write(key)
 
-# WEIGHTED SEARCH using query_prompts.py logic
-def weighted_search_freesound(query: str, token: str) -> Tuple[List[Dict[str, Any]], bool]:
-    base_url = 'https://freesound.org/apiv2/search/text/'
-    params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
-    for _ in range(1):
-        try:
-            resp = requests.get(base_url, params=params, timeout=60)
-            time.sleep(1.2)
-            if resp.status_code == 200:
-                data = resp.json()
-                results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 10][:5]
-                if results:
-                    # Check if CC0
-                    is_cc0 = all(r.get('license', '').lower() == 'cc0' for r in results[:1])  # approximate
-                    return results, is_cc0
-        except:
-            pass
-    return [], False
+
 
 def download_sfx(result: Dict[str, Any], path: str) -> bool:
     urls = [result['previews'].get('preview-hq-mp3'), result['previews'].get('preview-lq-mp3')]
@@ -161,11 +145,12 @@ def process_item(item: Dict[str, Any], api_key: str, normalize: bool, random_mod
 
 def run_headless() -> None:
     parser = argparse.ArgumentParser(description='SFX Clanker Headless Mode')
-    parser.add_argument('--output', required=True, help='Output directory')
+    parser.add_argument('--output', help='Output directory')
     parser.add_argument('--normalize', action='store_true', help='Normalize audio')
     parser.add_argument('--random', action='store_true', help='Randomize sounds each batch')
     parser.add_argument('--trim', action='store_true', help='Trim silence')
     parser.add_argument('--categories', default='Combat,Movement,UI', help='Comma-separated categories')
+    parser.add_argument('--populate-cache', action='store_true', help='Populate cache with good IDs')
     args = parser.parse_args(sys.argv[2:])
 
     output_dir = args.output
@@ -174,12 +159,22 @@ def run_headless() -> None:
     trim = args.trim
     categories = [c.strip() for c in args.categories.split(',')]
 
-    os.makedirs(output_dir, exist_ok=True)
-
     api_key = load_api_key()
     if not api_key:
         print("Error: No API key found. Run GUI first to set it.")
         sys.exit(1)
+
+    if args.populate_cache:
+        print("Populating cache...")
+        populate_cache(api_key, categories)
+        print("Cache populated.")
+        sys.exit(0)
+
+    if not output_dir:
+        print("Error: --output required for generation")
+        sys.exit(1)
+
+    os.makedirs(output_dir, exist_ok=True)
 
     sfx = SFXLibrary()
     items = []
