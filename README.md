@@ -10,11 +10,14 @@ Built per sfxClanker.design.md and .clinerules, under 400 lines, dark retro them
 
 ## Features
 
-- **GUI Layout**: Left checklist for categories (Combat/Movement/UI), bottom controls (folder select, normalize checkbox, big green GENERATE button), right preview list post-gen.
-- **Headless Mode**: CLI for automation: `python sfxClanker.py --headless --output DIR [--normalize] --categories Combat,Movement,UI`.
+- **GUI Layout**: Left checklist for categories (Combat/Movement/UI), middle volume/length controls (global volume slider, RMS target, strict trim, manual mode, clear cache), bottom controls (folder select, normalize/trim/randomize checkboxes, big green GENERATE button), right preview list post-gen.
+- **Deep Pool**: Checkbox to populate cache with 40 high-quality IDs per filename (stricter filters: duration 0.5-3s, downloads >20).
+- **Manual Mode**: Inline tabbed category tables with per-row volume sliders (0.5-2.0x), preview buttons, and checkboxes for selection. Sub-tags and quality scores displayed.
+- **Allow Multiple**: When checked, random pick from selected candidates per filename; otherwise single selection.
+- **Headless Mode**: CLI for automation: `python sfxClanker.py --headless --output DIR [--normalize --trim --random --volume 1.0 --loudness -14.0 --strict-length --manual --deep-pool] --categories Combat,Movement,UI`.
 - **API Integration**: FreeSound v2 API with token auth, search appends "dark fantasy souls-like gritty armor medieval dark souls style", prefers CC0 license (logs NON-CC0 alerts for fallback results), returns first result (no strict filters), downloads HQ/LQ MP3 previews.
 - **Fallbacks and IDs**: Each SFX has 5+ fallback queries; optional hardcoded IDs for pre-validated sounds tried first.
-- **Audio Processing**: Converts to 44.1kHz mono WAV with ffmpeg, optional loudnorm normalization.
+- **Audio Processing**: Converts to 44.1kHz mono WAV with ffmpeg, optional loudnorm normalization, per-sound volume override in manual mode.
 - **Filenames**: Exact convention from clinerules: category_lowercase_underscores.wav (e.g., combat_light_attack_hit.wav).
 - **Preview**: Plays with winsound (Windows).
 - **Error Handling**: Retries 3x, skips failures, logs to generation_log.txt (with NON-CC0 alerts) and failed_queries.txt for debugging.
