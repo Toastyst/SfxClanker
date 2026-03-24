@@ -43,7 +43,7 @@
 - requests (API calls)
 - pytest (testing)
 - mypy (type checking)
-- ffmpeg (audio processing, bundled or installed)
+- ffmpeg (audio processing, user-installed)
 
 ## 4. Error Handling & UX
 - Clear progress bar + status text during batch.

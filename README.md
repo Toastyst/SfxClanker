@@ -23,22 +23,26 @@ Built per sfxClanker.design.md and .clinerules, under 400 lines, dark retro them
 - Python 3.x (tested on 3.13)
 - tkinter (built-in on Windows)
 - requests, pytest, mypy libraries
-- ffmpeg (bundled in repo, or install separately)
+- ffmpeg (install separately)
 
 ### Installation
 
-1. Clone the repository:
+1. Install ffmpeg:
+   - Download from https://ffmpeg.org/download.html (Windows: "Windows builds" > "ffmpeg-*-essentials_build.zip")
+   - Extract zip, add `bin/` folder to your system PATH (search "environment variables" in Windows)
+
+2. Clone the repository:
    ```bash
    git clone https://github.com/Toastyst/SfxClanker.git
    cd SfxClanker
    ```
 
-2. Install Python dependencies:
+3. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Obtain FreeSound API key:
+4. Obtain FreeSound API key:
    - Visit https://freesound.org/apiv2/apply/
    - Apply for a personal API key (free, instant approval for non-commercial use).
 
