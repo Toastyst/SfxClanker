@@ -1,6 +1,6 @@
 # sfxClanker Design Document
-**Version:** 1.1 (March 2026)
-**Status:** Modular one-button FreeSound batch downloader for HelloKnight with testing and automation
+**Version:** 1.2 (March 2026)
+**Status:** Complete GUI application with manual selection, deep caching, and headless automation
 **Goal:** Single “Generate Sound Pack” button that downloads all 24 SFX with perfect dark-fantasy Souls-like consistency, names them correctly, normalizes them, and drops them in a folder. Includes headless mode, randomization, and comprehensive testing.
 **Repository:** https://github.com/Toastyst/SfxClanker
 

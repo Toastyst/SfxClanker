@@ -12,21 +12,22 @@ class CacheEntry(TypedDict):
     good_ids: List[str]
     last_updated: str
 
-def get_sound_by_id(sound_id: str, token: str) -> Dict[str, Any] | None:
-    url = f'https://freesound.org/apiv2/sounds/{sound_id}/'
-    params = {'token': token, 'fields': 'id,name,previews,duration,num_downloads'}
-    for _ in range(3):
-        try:
-            resp = requests.get(url, params=params, timeout=60)
-            time.sleep(1.5)
-            if resp.status_code == 200:
-                result = resp.json()
-                return result  # type: ignore
-        except:
-            pass
+def get_sound_by_id(sound_id: str, tokens: List[str]) -> Dict[str, Any] | None:
+    for token in tokens:
+        url = f'https://freesound.org/apiv2/sounds/{sound_id}/'
+        params = {'token': token, 'fields': 'id,name,previews,duration,num_downloads'}
+        for _ in range(3):
+            try:
+                resp = requests.get(url, params=params, timeout=60)
+                time.sleep(1.5)
+                if resp.status_code == 200:
+                    result = resp.json()
+                    return result  # type: ignore
+            except:
+                pass
     return None
 
-def load_cache(token: str, skip_validate: bool = False) -> Dict[str, CacheEntry]:
+def load_cache(tokens: List[str], skip_validate: bool = False) -> Dict[str, CacheEntry]:
     if not os.path.exists('cache.json'):
         return {}
     try:
@@ -39,7 +40,7 @@ def load_cache(token: str, skip_validate: bool = False) -> Dict[str, CacheEntry]
         for filename, entry in list(cache.items()):
             good_ids = []
             for id_str in entry['good_ids']:
-                result = get_sound_by_id(id_str, token)
+                result = get_sound_by_id(id_str, tokens)
                 if result and result.get('duration', 0) < 4 and result.get('num_downloads', 0) > 5 and (result.get('previews', {}).get('preview-hq-mp3') or result.get('previews', {}).get('preview-lq-mp3')):
                     good_ids.append(id_str)
             if good_ids:
@@ -57,11 +58,11 @@ def save_cache(cache: Dict[str, CacheEntry]) -> None:
     except:
         pass
 
-def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'UI'], deep: bool = False, target: int = 12) -> None:
+def populate_cache(tokens: List[str], categories: List[str] = ['Combat', 'Movement', 'UI'], deep: bool = False, target: int = 12) -> None:
     if deep:
         target = 40
     sfx = SFXLibrary()
-    cache = load_cache(token)
+    cache = load_cache(tokens[0])
     count = 0
     for cat in categories:
         if cat not in sfx.prompts:
@@ -80,7 +81,7 @@ def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'U
                 if len(good_ids) >= target:
                     break
                 # First try CC0
-                results = weighted_search_freesound(query, token, prefer_cc0=True)
+                results = weighted_search_freesound(query, tokens, prefer_cc0=True)
                 for r in results:
                     id_str = str(r['id'])
                     if id_str not in good_ids:
@@ -89,7 +90,7 @@ def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'U
                             break
                 if len(good_ids) < target:
                     # Then try without CC0 filter
-                    results = weighted_search_freesound(query, token, prefer_cc0=False)
+                    results = weighted_search_freesound(query, tokens, prefer_cc0=False)
                     for r in results:
                         id_str = str(r['id'])
                         if id_str not in good_ids:
@@ -99,7 +100,7 @@ def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'U
             # If still 0, try very light flavor as last resort
             if len(good_ids) == 0:
                 flavored = name + " +dark +fantasy"
-                results = weighted_search_freesound(flavored, token, prefer_cc0=True)
+                results = weighted_search_freesound(flavored, tokens, prefer_cc0=True)
                 for r in results:
                     id_str = str(r['id'])
                     if id_str not in good_ids:
@@ -107,7 +108,7 @@ def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'U
                         if len(good_ids) >= target:
                             break
             if len(good_ids) < target:
-                    results = weighted_search_freesound(flavored, token, prefer_cc0=False)
+                    results = weighted_search_freesound(flavored, tokens, prefer_cc0=False)
                     for r in results:
                         id_str = str(r['id'])
                         if id_str not in good_ids:
@@ -118,7 +119,7 @@ def populate_cache(token: str, categories: List[str] = ['Combat', 'Movement', 'U
             if deep:
                 validated = []
                 for id_str in good_ids_list:
-                    result = get_sound_by_id(id_str, token)
+                    result = get_sound_by_id(id_str, tokens)
                     if result and 0.5 <= result.get('duration', 0) <= 3.0 and result.get('num_downloads', 0) > 20 and (result.get('previews', {}).get('preview-hq-mp3') or result.get('previews', {}).get('preview-lq-mp3')):
                         validated.append(id_str)
                 good_ids_list = validated

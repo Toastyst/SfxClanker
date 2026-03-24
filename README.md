@@ -10,16 +10,16 @@ Built per sfxClanker.design.md and .clinerules, under 400 lines, dark retro them
 
 ## Features
 
-- **GUI Layout**: Left checklist for categories (Combat/Movement/UI), middle volume/length controls (global volume slider, RMS target, strict trim, manual mode, clear cache), bottom controls (folder select, normalize/trim/randomize checkboxes, big green GENERATE button), right preview list post-gen.
+- **GUI Layout**: Top toolbar with folder select left, global volume/RMS sliders, checkboxes (strict trim, manual mode, deep pool, allow multiple, clear cache). Center tabbed notebook for categories with inline tables (checkbox, sound name/tag/duration, volume slider, preview button). Bottom controls (normalize/trim/randomize checkboxes, big green GENERATE button). Live volume preview on slider move, scroll wheel support everywhere.
 - **Deep Pool**: Checkbox to populate cache with 40 high-quality IDs per filename (stricter filters: duration 0.5-3s, downloads >20).
-- **Manual Mode**: Inline tabbed category tables with per-row volume sliders (0.5-2.0x), preview buttons, and checkboxes for selection. Sub-tags and quality scores displayed.
+- **Manual Mode**: When enabled, tables show multiple candidates per category for selection. When disabled, tables show top 1 candidate auto-selected with volume 1.0.
 - **Allow Multiple**: When checked, random pick from selected candidates per filename; otherwise single selection.
 - **Headless Mode**: CLI for automation: `python sfxClanker.py --headless --output DIR [--normalize --trim --random --volume 1.0 --loudness -14.0 --strict-length --manual --deep-pool] --categories Combat,Movement,UI`.
 - **API Integration**: FreeSound v2 API with token auth, search appends "dark fantasy souls-like gritty armor medieval dark souls style", prefers CC0 license (logs NON-CC0 alerts for fallback results), returns first result (no strict filters), downloads HQ/LQ MP3 previews.
 - **Fallbacks and IDs**: Each SFX has 5+ fallback queries; optional hardcoded IDs for pre-validated sounds tried first.
 - **Audio Processing**: Converts to 44.1kHz mono WAV with ffmpeg, optional loudnorm normalization, per-sound volume override in manual mode.
 - **Filenames**: Exact convention from clinerules: category_lowercase_underscores.wav (e.g., combat_light_attack_hit.wav).
-- **Preview**: Plays with winsound (Windows).
+- **Preview**: Plays with pygame (live volume preview), winsound for post-gen (Windows).
 - **Error Handling**: Retries 3x, skips failures, logs to generation_log.txt (with NON-CC0 alerts) and failed_queries.txt for debugging.
 - **Persistence**: API key saved in freesound_key.txt.
 
@@ -71,14 +71,15 @@ This helps achieve consistent packs with variety across randomize runs.
 ### Generating a Sound Pack
 
 1. **Launch GUI**: Run `python sfxClanker.py`. The window opens with dark theme.
-2. **Select Categories**: Use the left checklist to choose Combat, Movement, UI (default all selected). Click "Select All" to toggle.
-3. **Choose Output Folder**: Click "Choose Output Folder" button, select a directory for the generated WAV files.
-4. **Options**: Check "Normalize to -3 dB" for consistent volume (recommended).
-5. **Generate**: Click the big green "GENERATE SOUND PACK" button. The tool tries hardcoded IDs first if available, then searches with name + fallbacks + appended tags, filtering results.
-6. **Monitor Progress**: Watch the progress bar and status text. Generation is threaded, GUI remains responsive.
-7. **Completion**: Dialog shows success count. Preview buttons appear on the right for each generated SFX.
-8. **Playback**: Click any "Play [filename]" button to preview at 50% volume.
-9. **Output**: Check the selected folder for WAV files, plus `generation_log.txt` with details on generated/skipped files, and `failed_queries.txt` with failed query lists for debugging.
+2. **Choose Output Folder**: Click "Choose Output Folder" button in top toolbar, select a directory for the generated WAV files.
+3. **Select Categories**: Use the left checklist to choose Combat, Movement, UI (default all selected). Click "Select All" to toggle.
+4. **Options**: Adjust global volume/RMS sliders, check strict trim, manual mode, deep pool, allow multiple, clear cache as needed. Check "Normalize to -3 dB" for consistent volume (recommended).
+5. **Generate**: Click the big green "GENERATE SOUND PACK" button. The tool collects candidates for selected categories and displays tabbed tables in the center.
+6. **Review/Adjust**: In normal mode (manual off), each category tab shows the top candidate auto-selected with volume 1.0. In manual mode, multiple candidates per category. Adjust volume sliders (live preview plays immediately), check/uncheck selections. Scroll with mouse wheel.
+7. **Confirm**: Click "Confirm Selections" to proceed with generation.
+8. **Monitor Progress**: Watch the progress bar and status text. Generation is threaded, GUI remains responsive.
+9. **Completion**: Dialog shows success count.
+10. **Output**: Check the selected folder for WAV files, plus `generation_log.txt` with details on generated/skipped files, and `failed_queries.txt` with failed query lists for debugging.
 
 ### Example Output
 

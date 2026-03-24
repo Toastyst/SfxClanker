@@ -34,16 +34,24 @@ def process_audio(input_path: str, output_path: str, normalize_flag: bool, trim:
     except Exception as e:
         return str(e)
 
-def preview_audio(path: str) -> None:
+def preview_audio(path: str, vol_factor: float = 1.0, blocking: bool = False) -> None:
     try:
         pygame.mixer.init()
+        pygame.mixer.music.stop()  # Stop previous sound
         pygame.mixer.music.load(path)
-        pygame.mixer.music.set_volume(1.0)
+        pygame.mixer.music.set_volume(vol_factor)
         pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
+        if blocking:
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(10)
+            os.remove(path)  # Remove after play
     except Exception as e:
         print(f"Preview failed: {e}")
+        if blocking:
+            try:
+                os.remove(path)
+            except:
+                pass
 
 def apply_volume_loudness(audio: AudioSegment, global_vol: float, rms_target: float) -> AudioSegment:
     # RMS normalize: approximate LUFS with RMS dB
