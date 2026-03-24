@@ -34,30 +34,18 @@ def save_api_key(key):
 # WEIGHTED SEARCH using query_prompts.py logic
 def weighted_search_freesound(query: str, token: str) -> Tuple[List[Dict], bool]:
     base_url = 'https://freesound.org/apiv2/search/text/'
-    # First try with CC0 filter
-    params_cc0 = {'token': token, 'query': query, 'filter': 'license:"cc0"', 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
-    for _ in range(1):  # one retry
-        try:
-            resp = requests.get(base_url, params=params_cc0, timeout=60)
-            time.sleep(1.2)
-            if resp.status_code == 200:
-                data = resp.json()
-                results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 0][:5]
-                if results:
-                    return results, True
-        except:
-            pass
-    # Fallback without CC0
-    params_all = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
+    params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads'}
     for _ in range(1):
         try:
-            resp = requests.get(base_url, params=params_all, timeout=60)
+            resp = requests.get(base_url, params=params, timeout=60)
             time.sleep(1.2)
             if resp.status_code == 200:
                 data = resp.json()
-                results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 5][:5]
+                results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 10][:5]
                 if results:
-                    return results, False
+                    # Check if CC0
+                    is_cc0 = all(r.get('license', '').lower() == 'cc0' for r in results[:1])  # approximate
+                    return results, is_cc0
         except:
             pass
     return [], False
