@@ -460,11 +460,16 @@ class SFXClankerGUI(tk.Tk):
         self.run_generation_threaded(items, api_key, volume_settings, normalize, randomize, trim, length_config)
 
     def _run_generation(self, items: List[Dict[str, Any]], api_key: str, volume_settings: VolumeSettings, normalize: bool, randomize: bool, trim: bool, length_config: LengthConfig) -> None:
+        self.console_queue.put("Worker thread started")
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            self.console_queue.put("Executor created")
             futures_to_items = {executor.submit(process_item, item, api_key, normalize, randomize, self.output_dir, lambda msg: self.console_queue.put(msg), trim, volume_settings, length_config, manual_vol=item.get('manual_vol')): item for item in items}  # type: ignore[misc]
+            self.console_queue.put(f"Submitted {len(futures_to_items)} tasks")
             completed = 0
+            self.console_queue.put("Entering as_completed")
             for future in concurrent.futures.as_completed(futures_to_items):
                 item = futures_to_items[future]
+                self.console_queue.put(f"Future done for {item['filename']}")
                 try:
                     success = future.result()
                     item['status'] = 'success' if success else 'skipped'
