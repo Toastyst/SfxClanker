@@ -22,6 +22,7 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
             params['filter'] += ';license:cc0'
         for _ in range(1):
             try:
+                print(f"[API] Searching Freesound for: '{query}' using Key {tokens.index(token)}...")
                 resp = requests.get(base_url, params=params, timeout=60)
                 time.sleep(1.5)
                 if resp.status_code == 200:

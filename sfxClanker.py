@@ -325,9 +325,23 @@ class SFXClankerGUI(tk.Tk):
     def orchestrate_search(self):
         selected_cats = [cat for cat, var in self.check_vars.items() if var.get()]
         slots_to_search = [slot for slot in self.slots if slot['category'] in selected_cats]
+        cands_by_slot = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             futures = {executor.submit(search_slot, slot, self.api_keys): slot for slot in slots_to_search}
-            cands_by_slot = {slot['name']: future.result() for future, slot in zip(futures, futures.keys())}
+            count = 0
+            for future in concurrent.futures.as_completed(futures):
+                slot = futures[future]
+                try:
+                    cands = future.result()
+                    count += 1
+                    msg = f"[Internal] Slot {count}/{len(slots_to_search)}: {slot['name']} search complete ({len(cands)} candidates found)"
+                    print(msg)
+                    self.update_console(msg)
+                    self.status_label.config(text=f"Searching slots: {count}/{len(slots_to_search)}")
+                    cands_by_slot[slot['name']] = cands
+                except Exception as e:
+                    print(f"[Error] Slot {slot['name']} search failed: {e}")
+                    self.update_console(f"[Error] Slot {slot['name']} search failed: {e}")
         from collections import defaultdict
         slots_cands_by_cat = defaultdict(dict)
         for slot_name, cands in cands_by_slot.items():

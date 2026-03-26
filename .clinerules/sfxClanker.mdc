@@ -19,6 +19,12 @@ MANDATORY RULES:
 
 Never add extra panels, batch upload, or complexity. One button = one perfect pack.
 
+# UI Testing
+
+To check for UI deployment errors, run the app with head: `python sfxClanker.py`
+
+This will pop the window and print any import or initialization errors to console.
+
 # Logging Rule
 For iterative testing and feedback, rely on log files (generation_log.txt, failed_queries.txt) rather than console output to avoid high token usage. Use console only for brief status, detailed errors in logs.
 
