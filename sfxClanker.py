@@ -42,15 +42,15 @@ class VolumeSettings(TypedDict):
 
 def load_keys() -> List[str]:
     try:
-        with open('freesound_keys.txt', 'r') as f:
-            keys = [line.strip() for line in f if line.strip()]
-        return keys
+        with open('freesound_key.txt', 'r') as f:
+            key = f.read().strip()
+        return [key] if key else []
     except:
         return []
 
 def save_api_key(key: str) -> None:
-    with open('freesound_keys.txt', 'a') as f:
-        f.write(key + '\n')
+    with open('freesound_key.txt', 'w') as f:
+        f.write(key)
 
 
 

@@ -20,6 +20,7 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
         if logger_callback:
             logger_callback("[System] Thread Aborted")
         return [], True
+    sleep_multiplier = [1.0]
     for token in tokens:
         base_url = 'https://freesound.org/apiv2/search/text/'
         params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads,license,analysis', 'filter': filter}
@@ -27,11 +28,17 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
             params['filter'] += ';license:cc0'
         for attempt in range(3):
             try:
-                jitter = 2.0 + random.uniform(0, 2.0)
+                jitter = (2.0 + random.uniform(0, 2.0)) * sleep_multiplier[0]
                 time.sleep(jitter)
                 if logger_callback:
                     logger_callback(f"[API] Searching Freesound for: '{query}' using Key {tokens.index(token)}...")
                 resp = requests.get(base_url, params=params, timeout=60)
+                if resp.status_code == 429:
+                    if logger_callback:
+                        logger_callback("[Warning] Rate limit hit. Increasing delay...")
+                    sleep_multiplier[0] *= 2
+                    time.sleep(5)
+                    continue
                 if resp.status_code == 504:
                     if logger_callback:
                         logger_callback("[RETRY] Freesound busy... waiting 5s")
