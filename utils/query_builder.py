@@ -36,8 +36,15 @@ def build_slot_query(slot: Slot) -> str:
     mandatory = profile.get('mandatory', [])
     optional = profile.get('optional', [])[:3]  # max 3
     exclude = profile.get('exclude', [])
+    # Filter bad words
+    bad_words = ['mandatory', 'optional', 'exclude']
+    mandatory = [t for t in mandatory if t and t not in bad_words]
+    optional = [t for t in optional if t and t not in bad_words]
+    exclude = [t for t in exclude if t and t not in bad_words]
     # Unique: remove if in mandatory
     optional = [t for t in optional if t not in mandatory]
+    # Core term first
+    core_term = slot['name'].split('_')[0]
     # + for pos_tags + mandatory
     pos_plus = sorted(set(slot['pos_tags'] + mandatory))  # unique sorted
     pos_str = '+' + ' +'.join(pos_plus) if pos_plus else ''
@@ -46,7 +53,9 @@ def build_slot_query(slot: Slot) -> str:
     # - for neg_tags + universal + exclude
     neg = sorted(set(slot['neg_tags'] + fm.profile['universal_negatives'] + exclude))
     neg_str = '-' + ' -'.join(neg) if neg else ''
-    query = f"{pos_str} {optional_str} {neg_str}".strip()
+    query = f"{core_term} {pos_str} {optional_str} {neg_str}".strip()
+    # Space hygiene
+    query = ' '.join(query.split())
     return query
 
 class FlavorManager:
