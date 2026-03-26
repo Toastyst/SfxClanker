@@ -1,6 +1,6 @@
 import re
 import json
-from typing import List
+from typing import List, Dict
 from utils.slots import Slot
 
 def build_search_query(raw_term: str) -> str:
@@ -32,12 +32,22 @@ def get_progressive_queries(name: str, fallbacks: List[str]) -> List[str]:
 
 def build_slot_query(slot: Slot) -> str:
     fm = FlavorManager()
-    flavor_tags = [t for t in fm.get_tags(slot['category']) if t not in slot['pos_tags']]
-    pos = slot['pos_tags'] + flavor_tags
-    pos_str = ' +'.join(pos)
-    neg = sorted(set(slot['neg_tags'] + fm.profile['universal_negatives']))
-    neg_str = ' -'.join(neg)
-    return f"{pos_str} -{neg_str}"
+    profile = fm.get_tags(slot['category'])
+    mandatory = profile.get('mandatory', [])
+    optional = profile.get('optional', [])[:3]  # max 3
+    exclude = profile.get('exclude', [])
+    # Unique: remove if in mandatory
+    optional = [t for t in optional if t not in mandatory]
+    # + for pos_tags + mandatory
+    pos_plus = sorted(set(slot['pos_tags'] + mandatory))  # unique sorted
+    pos_str = '+' + ' +'.join(pos_plus) if pos_plus else ''
+    # no prefix for optional
+    optional_str = ' '.join(optional)
+    # - for neg_tags + universal + exclude
+    neg = sorted(set(slot['neg_tags'] + fm.profile['universal_negatives'] + exclude))
+    neg_str = '-' + ' -'.join(neg) if neg else ''
+    query = f"{pos_str} {optional_str} {neg_str}".strip()
+    return query
 
 class FlavorManager:
     def __init__(self):
@@ -45,8 +55,8 @@ class FlavorManager:
             self.profiles = json.load(f)
         self.profile = self.profiles['gritty_medieval']
 
-    def get_tags(self, category: str) -> List[str]:
-        return self.profile.get(category, [])
+    def get_tags(self, category: str) -> Dict[str, List[str]]:
+        return self.profile.get(category, {})
 
 def get_flavor_query(category: str) -> str:
     flavors = {

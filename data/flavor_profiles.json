@@ -1,8 +1,20 @@
 {
   "gritty_medieval": {
     "universal_negatives": ["synth", "electronic", "beep", "buzz", "sine"],
-    "Combat": ["metallic", "impact", "clash", "heavy", "gritty"],
-    "Movement": ["stone", "wood", "creak", "whoosh", "organic"],
-    "UI": ["chime", "ting", "clean", "ethereal", "short"]
+    "Combat": {
+      "mandatory": ["metallic", "impact"],
+      "optional": ["clash", "heavy", "gritty"],
+      "exclude": []
+    },
+    "Movement": {
+      "mandatory": ["stone", "wood"],
+      "optional": ["creak", "whoosh", "organic"],
+      "exclude": []
+    },
+    "UI": {
+      "mandatory": ["chime"],
+      "optional": ["ting", "clean", "ethereal"],
+      "exclude": []
+    }
   }
 }

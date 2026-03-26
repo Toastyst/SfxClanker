@@ -50,6 +50,8 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
 def search_slot(slot: Slot, tokens: List[str], logger_callback=None) -> List[Candidate]:
     query = build_slot_query(slot)
     enhanced = enhance_query(query)
+    if logger_callback:
+        logger_callback(f"[API] Searching {slot['name']} ({slot['category']} - Gritty Medieval)...")
     results, _ = weighted_search_freesound(enhanced, tokens, logger_callback=logger_callback)
     if not results:
         return []
