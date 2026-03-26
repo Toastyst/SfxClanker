@@ -7,11 +7,12 @@ def test_get_slots():
     for slot in slots:
         assert 'name' in slot
         assert 'display_name' in slot
+        assert 'category' in slot
         assert 'pos_tags' in slot
         assert 'neg_tags' in slot
         assert isinstance(slot['pos_tags'], list)
         assert isinstance(slot['neg_tags'], list)
         assert len(slot['pos_tags']) >= 3
         assert len(slot['neg_tags']) >= 3
-        assert slot['name'].startswith(('combat_', 'movement_', 'ui_'))
+        assert slot['category'] in ['Combat', 'Movement', 'UI']
         assert 'id' in slot  # optional

@@ -22,6 +22,7 @@ from utils.query_builder import build_search_query, enhance_query
 from utils.audio_processor import process_audio, preview_audio, AudioSegment
 from utils.search import weighted_search_freesound, get_sound_by_id, search_slot
 from utils.gui_helpers import build_category_scrollable
+from utils.utils import download_sfx, generate_filename, log_message, log_failed
 
 class Candidate(TypedDict):
     id: str
@@ -53,77 +54,7 @@ def save_api_key(key: str) -> None:
 
 
 
-def download_sfx(result: Dict[str, Any], path: str) -> bool:
-    urls = [result['previews'].get('preview-hq-mp3'), result['previews'].get('preview-lq-mp3')]
-    for url in urls:
-        if url:
-            try:
-                resp = requests.get(url, timeout=60)
-                if resp.status_code == 200:
-                    with open(path, 'wb') as f:
-                        f.write(resp.content)
-                    return True
-            except:
-                pass
-    return False
-
-def generate_filename(category: str, name: str) -> str:
-    clean = re.sub(r'[^a-zA-Z0-9\s/]', '', name).lower().replace(' ', '_').replace('/', '_')
-    return f"{category}_{clean}.wav"
-
-def log_message(output_dir: str, msg: str) -> None:
-    log_path = os.path.join(output_dir, 'generation_log.txt')
-    with open(log_path, 'a') as f:
-        f.write(msg + '\n')
-
-def log_failed(output_dir: str, queries: List[str]) -> None:
-    path = os.path.join(output_dir, 'failed_queries.txt')
-    with open(path, 'a') as f:
-        f.write(f"Failed queries: {', '.join(queries)}\n")
-
-
-
-def collect_candidates_for_category(category: str, api_keys: List[str], console_callback: Callable, target_cand: int = 12) -> List[Candidate]:
-    console_callback(f"Searching {category}...")
-    console_callback(f"API keys: {len(api_keys)}")
-    candidates: List[Candidate] = []
-    sfx = SFXLibrary()
-    cat_defaults = {'Combat': 'hit', 'Movement': 'step', 'UI': 'click'}
-    for name in sfx.get_names(category):
-        console_callback(f"Querying {name}...")
-        queries = [name]  # simplified
-        for query in queries:
-            console_callback(f"Query: {query}")
-            boosted = build_search_query(query)
-            console_callback(f"Boosted: {boosted}")
-            results, _ = weighted_search_freesound(boosted, api_keys)
-            console_callback(f"Results: {len(results)}")
-            for r in results[:target_cand // len(sfx.get_names(category)) + 1]:
-                sound = get_sound_by_id(str(r['id']), api_keys)
-                if sound and sound.get('duration', 0) < 4:
-                    temp_mp3 = f"temp_preview_{r['id']}.mp3"
-                    if download_sfx(sound, temp_mp3):
-                        temp_audio = AudioSegment.from_file(temp_mp3).set_frame_rate(44100).set_channels(1)
-                        rms_db = 20 * math.log10(temp_audio.rms / 32768) if temp_audio.rms > 0 else -60
-                        dur = sound['duration']
-                        quality_score = (10 - abs(rms_db + 14)) * (1 - abs(dur - 1.2) / 1.2)
-                        tag = sound.get('analysis', {}).get('tagstrings', [cat_defaults.get(category, 'sound')])[0]
-                        candidates.append({
-                            'id': str(sound['id']),
-                            'name': sound['name'],
-                            'duration': dur,
-                            'preview_url': sound['previews'].get('preview-lq-mp3', ''),
-                            'rms_loudness': float(rms_db),
-                            'quality_score': float(quality_score),
-                            'tag': tag
-                        })
-                        os.remove(temp_mp3)
-                    if len(candidates) >= target_cand:
-                        break
-            if len(candidates) >= target_cand:
-                break
-    console_callback(f"Category {category}: found {len(candidates)}/{target_cand}")
-    return candidates
+# Moved to utils/utils.py
 
 # RANDOM MODE: pick from top 5 for funny packs
 def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, random_mode: bool, output_dir: str, console_callback: Callable[[str], None], trim: bool = False,
@@ -185,8 +116,7 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
         console_callback("Skipped: Download failed")
         log_message(output_dir, f"Skipped {item['filename']}: download failed")
         return False
-    cat = item['category'].title()  # e.g. 'combat' -> 'Combat'
-    max_len = length_config.get(cat, 2.0) if length_config else None
+    max_len = 2.0  # default
     vol_gain = volume_settings['global_volume'] if volume_settings else 1.0
     rms_t = volume_settings['loudness_target'] if volume_settings else -14.0
     strict_l = volume_settings['strict_length'] if volume_settings else False
@@ -235,13 +165,13 @@ def run_headless() -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     sfx = SFXLibrary()
+    slots = sfx.get_slots()
     items = []
     for cat in categories:
-        if cat in sfx.prompts:
-            for name in sfx.get_names(cat):
-                prompt = sfx.get_prompt(cat, name)
-                filename = generate_filename(cat, name)
-                items.append({'category': cat.lower(), 'name': name, 'fallbacks': prompt['fallbacks'] if prompt else [], 'id': prompt.get('id') if prompt else None, 'filename': filename, 'status': 'pending', 'path': os.path.join(output_dir, filename)})
+        cat_slots = [slot for slot in slots if slot['category'] == cat]
+        for slot in cat_slots:
+            filename = sfx.filename_from_slot(slot)
+            items.append({'slot_name': slot['name'], 'filename': filename, 'path': os.path.join(output_dir, filename)})
 
     if not items:
         print("Error: No items for selected categories")
@@ -381,47 +311,29 @@ class SFXClankerGUI(tk.Tk):
                 return
             save_api_key(key)
             api_keys = [key]
-        # Get selected items
-        items = []
-        for cat, var in self.check_vars.items():
-            if var.get():
-                for name in self.sfx.get_names(cat):
-                    prompt = self.sfx.get_prompt(cat, name)
-                    filename = generate_filename(cat, name)
-                    items.append({'category': cat.lower(), 'name': name, 'fallbacks': prompt['fallbacks'] if prompt else [], 'id': prompt.get('id') if prompt else None, 'filename': filename, 'status': 'pending', 'path': os.path.join(self.output_dir, filename)})
-        if not items:
-            messagebox.showerror("Error", "Select at least one category")
-            return
         self.gen_btn.config(state='disabled')
-        self.update_console("Collecting candidates...")
-        self.progress['maximum'] = len(items)
-        self.progress['value'] = 0
-        self.status_label.config(text="Generating...")
-        # Volume settings
-        volume_settings = {
+        self.update_console("Searching slots...")
+        self.status_label.config(text="Searching...")
+        self.volume_settings = {
             'global_volume': self.volume_var.get(),
             'loudness_target': self.loudness_var.get(),
             'strict_length': self.strict_var.get()
         }
-        self.items = items
         self.api_keys = api_keys
-        self.volume_settings = volume_settings
+        threading.Thread(target=self.orchestrate_search, daemon=True).start()
+
+    def orchestrate_search(self):
         selected_cats = [cat for cat, var in self.check_vars.items() if var.get()]
-        slots_to_search = [slot for slot in self.slots if any(slot['name'].startswith(cat.lower() + '_') for cat in selected_cats)]
-        if not slots_to_search:
-            messagebox.showerror("Error", "Select at least one category")
-            return
-        self.update_console("Searching slots...")
+        slots_to_search = [slot for slot in self.slots if slot['category'] in selected_cats]
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            futures = {executor.submit(search_slot, slot, api_keys): slot for slot in slots_to_search}
+            futures = {executor.submit(search_slot, slot, self.api_keys): slot for slot in slots_to_search}
             cands_by_slot = {slot['name']: future.result() for future, slot in zip(futures, futures.keys())}
         from collections import defaultdict
         slots_cands_by_cat = defaultdict(dict)
         for slot_name, cands in cands_by_slot.items():
             cat = slot_name.split('_')[0].title()
             slots_cands_by_cat[cat][slot_name] = cands
-        self.items = [{'slot_name': slot['name'], 'filename': self.sfx.filename_from_slot(slot), 'path': os.path.join(self.output_dir, self.sfx.filename_from_slot(slot))} for slot in slots_to_search]
-        self.create_tabbed_view(slots_cands_by_cat, self.manual_var.get())
+        self.after(0, lambda: self.create_tabbed_view(slots_cands_by_cat, self.manual_var.get()))
 
     def _run_generation(self, items: List[Dict[str, Any]], api_keys: List[str], volume_settings: VolumeSettings, normalize: bool, randomize: bool, trim: bool, length_config: LengthConfig) -> None:
         self.console_queue.put("Worker thread started")
@@ -482,83 +394,7 @@ class SFXClankerGUI(tk.Tk):
 
 
 
-    def build_candidate_table(self, parent_frame: tk.Frame, category: str, candidates: List[Candidate], selections: Dict[str, Dict[str, float]], allow_multiple: bool, is_manual: bool = True) -> None:
-        # ScrolledFrame
-        canvas = tk.Canvas(parent_frame, bg='#2b2b2b', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent_frame, orient="vertical", command=canvas.yview)
-        scroll_frame = tk.Frame(canvas, bg='#2b2b2b')
-        scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(-int(e.delta/120), "units"))
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.pack(fill=tk.BOTH, expand=True)
-        # Headers
-        tk.Label(scroll_frame, text="Select", bg='#2b2b2b', fg='white', font=('Arial', 10, 'bold')).grid(row=0, column=0, padx=10, pady=10)
-        tk.Label(scroll_frame, text="Sound • Tag • Dur", bg='#2b2b2b', fg='white', font=('Arial', 10, 'bold')).grid(row=0, column=1, padx=10, pady=10)
-        tk.Label(scroll_frame, text="Vol", bg='#2b2b2b', fg='white', font=('Arial', 10, 'bold')).grid(row=0, column=2, padx=10, pady=10)
-        tk.Label(scroll_frame, text="Preview", bg='#2b2b2b', fg='white', font=('Arial', 10, 'bold')).grid(row=0, column=3, padx=10, pady=10)
-        row = 1
-        for cand in candidates:
-            id_str = cand['id']
-            # Checkbox
-            var = tk.BooleanVar(value=False)
-            chk = tk.Checkbutton(scroll_frame, variable=var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c')
-            chk.grid(row=row, column=0, padx=10, pady=10)
-            # Label
-            label_text = f"{cand['name']} • {cand['tag']} • {cand['duration']:.1f}s"
-            tk.Label(scroll_frame, text=label_text, bg='#2b2b2b', fg='white').grid(row=row, column=1, padx=10, pady=10, sticky='w')
-            # Scale
-            scale = tk.Scale(scroll_frame, from_=0.5, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, bg='#2b2b2b', fg='white')
-            scale.set(1.0)
-            if not is_manual and row == 1:
-                var.set(True)
-            scale.grid(row=row, column=2, padx=10, pady=10)
-            # Preview btn
-            def preview(url=cand['preview_url'], id=id_str):
-                if url:
-                    temp = f"temp_{id}.mp3"
-                    try:
-                        resp = requests.get(url, timeout=10)
-                        if resp.status_code == 200:
-                            with open(temp, 'wb') as f:
-                                f.write(resp.content)
-                            preview_audio(temp)
-                            os.remove(temp)
-                    except:
-                        pass
-            def preview(url=cand['preview_url'], id=id_str):
-                if url:
-                    temp = f"temp_{id}.mp3"
-                    try:
-                        resp = requests.get(url, timeout=10)
-                        if resp.status_code == 200:
-                            with open(temp, 'wb') as f:
-                                f.write(resp.content)
-                            preview_audio(temp, blocking=True)  # Blocking, removes file
-                    except:
-                        pass
-            btn = tk.Button(scroll_frame, text="Play", command=preview, bg='#4a4a4a', fg='white')
-            btn.grid(row=row, column=3, padx=10, pady=10)
-            # Store selections
-            def on_check(var=var, scale=scale, id=id_str):
-                if var.get():
-                    selections[category][id] = scale.get()
-                else:
-                    selections[category].pop(id, None)
-            var.trace_add('write', lambda *args, var=var, scale=scale, id=id_str: on_check(var, scale, id))
-            scale.config(command=lambda v: [self.live_preview(cand, float(v)), selections[category].__setitem__(id, float(v)) if id in selections[category] else None])
-            row += 1
-        scroll_frame.grid_columnconfigure(1, weight=1)
-        scroll_frame.update()
-        canvas.configure(scrollregion=canvas.bbox("all"))
-        canvas.update()
-
-    def create_category_tab(self, notebook: ttk.Notebook, category: str, candidates: List[Candidate], is_manual: bool):
-        tab = tk.Frame(notebook, bg='#2b2b2b')
-        notebook.add(tab, text=category)
-        notebook.select(tab)
-        self.build_candidate_table(tab, category, candidates, self.selections, self.allow_multiple_var.get(), is_manual)
+# Removed unused methods
 
     def create_tabbed_view(self, slots_cands_by_cat: Dict[str, Dict[str, List[Candidate]]], is_manual: bool):
         # Clear notebook
