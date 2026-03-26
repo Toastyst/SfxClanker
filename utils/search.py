@@ -1,5 +1,6 @@
 import time
 import math
+import random
 from typing import List, Dict, Any, Tuple, TypedDict, Optional
 import requests
 from utils.slots import Slot
@@ -14,7 +15,11 @@ class Candidate(TypedDict):
     quality_score: float
     analysis: Dict[str, Any]
 
-def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = False, filter: str = "duration:[0.1 TO 3.0]", logger_callback=None) -> Tuple[List[Dict[str, Any]], bool]:
+def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = False, filter: str = "duration:[0.1 TO 3.0]", logger_callback=None, stop_event=None) -> Tuple[List[Dict[str, Any]], bool]:
+    if stop_event and stop_event.is_set():
+        if logger_callback:
+            logger_callback("[System] Thread Aborted")
+        return [], True
     for token in tokens:
         base_url = 'https://freesound.org/apiv2/search/text/'
         params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads,license,analysis', 'filter': filter}
@@ -22,10 +27,11 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
             params['filter'] += ';license:cc0'
         for attempt in range(3):
             try:
+                jitter = 2.0 + random.uniform(0, 2.0)
+                time.sleep(jitter)
                 if logger_callback:
                     logger_callback(f"[API] Searching Freesound for: '{query}' using Key {tokens.index(token)}...")
                 resp = requests.get(base_url, params=params, timeout=60)
-                time.sleep(2.0)
                 if resp.status_code == 504:
                     if logger_callback:
                         logger_callback("[RETRY] Freesound busy... waiting 5s")
@@ -47,12 +53,16 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
                 break
     return [], True
 
-def search_slot(slot: Slot, tokens: List[str], logger_callback=None) -> List[Candidate]:
+def search_slot(slot: Slot, tokens: List[str], logger_callback=None, stop_event=None) -> List[Candidate]:
+    if stop_event and stop_event.is_set():
+        if logger_callback:
+            logger_callback("[System] Thread Aborted")
+        return []
     query = build_slot_query(slot)
     enhanced = enhance_query(query)
     if logger_callback:
         logger_callback(f"[API] Searching {slot['name']} ({slot['category']} - Gritty Medieval)...")
-    results, _ = weighted_search_freesound(enhanced, tokens, logger_callback=logger_callback)
+    results, _ = weighted_search_freesound(enhanced, tokens, logger_callback=logger_callback, stop_event=stop_event)
     if not results:
         return []
     max_downloads = max(r['num_downloads'] for r in results) or 1

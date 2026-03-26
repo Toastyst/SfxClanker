@@ -230,6 +230,7 @@ class SFXClankerGUI(tk.Tk):
             self.console_queue = queue.Queue()
             self.progress = ttk.Progressbar(self, orient="horizontal", mode="determinate")
             self.status_label = tk.Label(self, text="Ready", bg='#1a1a1a', fg='white')
+            self.stop_event = threading.Event()
             self.left_frame = None
             self.create_widgets()
         except Exception as e:
@@ -254,6 +255,7 @@ class SFXClankerGUI(tk.Tk):
             chk = tk.Checkbutton(top_frame, text=cat, variable=var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c')
             chk.pack(side=tk.LEFT, padx=5)
         tk.Button(top_frame, text="Select All", command=self.select_all, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+        tk.Button(top_frame, text="STOP", command=self.stop_search, bg='#880808', fg='white').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(top_frame, text="Test Mode (2 slots)", variable=self.test_mode_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.RIGHT, padx=5)
 
         # Middle notebook (70% vertical)
@@ -283,6 +285,9 @@ class SFXClankerGUI(tk.Tk):
         tk.Checkbutton(controls_frame, text="Strict", variable=self.strict_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Scale(controls_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Vol").pack(side=tk.LEFT, padx=5)
         tk.Scale(controls_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS").pack(side=tk.LEFT, padx=5)
+        self.export_btn = tk.Button(controls_frame, text="EXPORT CONFIRMED", command=self.export_pack, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
+        self.export_btn.pack(side=tk.RIGHT, padx=10)
+        self.export_btn.config(state='disabled')
         self.gen_btn = tk.Button(controls_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
         self.gen_btn.pack(side=tk.RIGHT, padx=10)
         # Progress and status
@@ -309,6 +314,10 @@ class SFXClankerGUI(tk.Tk):
             save_api_key(key)
             self.update_console("API key saved.")
 
+    def stop_search(self) -> None:
+        self.stop_event.set()
+        self.update_console("Stop signal sent.")
+
     def generate_pack(self) -> None:
         if not self.output_dir:
             messagebox.showerror("Error", "Choose output folder first")
@@ -333,6 +342,7 @@ class SFXClankerGUI(tk.Tk):
         threading.Thread(target=self.orchestrate_search, daemon=True).start()
 
     def orchestrate_search(self):
+        self.stop_event.clear()
         selected_cats = [cat for cat, var in self.check_vars.items() if var.get()]
         slots_to_search = [slot for slot in self.slots if slot['category'] in selected_cats]
         if self.test_mode_var.get():
@@ -340,7 +350,7 @@ class SFXClankerGUI(tk.Tk):
         cands_by_slot = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             logger_callback = lambda msg: self.after(0, lambda m=msg: self.update_console(m))
-            futures = {executor.submit(search_slot, slot, self.api_keys, logger_callback): slot for slot in slots_to_search}
+            futures = {executor.submit(search_slot, slot, self.api_keys, logger_callback, self.stop_event): slot for slot in slots_to_search}
             count = 0
             for future in concurrent.futures.as_completed(futures):
                 slot = futures[future]
@@ -350,6 +360,7 @@ class SFXClankerGUI(tk.Tk):
                     msg = f"[Internal] Slot {count}/{len(slots_to_search)}: {slot['name']} search complete ({len(cands)} candidates found)"
                     self.after(0, lambda m=msg: self.update_console(m))
                     self.after(0, lambda: self.status_label.config(text=f"Searching slots: {count}/{len(slots_to_search)}"))
+                    self.after(0, lambda: self.progress.config(value=(count / len(slots_to_search)) * 100))
                     cands_by_slot[slot['name']] = cands
                 except Exception as e:
                     error_msg = f"[Error] Slot {slot['name']} search failed: {e}"
@@ -406,7 +417,7 @@ class SFXClankerGUI(tk.Tk):
         self.console.insert(tk.END, msg + "\n")
         self.console.see(tk.END)
         self.console.config(state='disabled')
-        self.console.update()
+        self.console.update_idletasks()
 
     def update_progress(self, completed: int, total: int, item: Dict[str, Any]) -> None:
         self.progress['value'] = completed
@@ -470,11 +481,26 @@ class SFXClankerGUI(tk.Tk):
                     item['manual_id'] = sel_id
                     item['manual_vol'] = self.selections[slot_name][sel_id]
         self.confirm_btn.pack_forget()
+        if self.selections:
+            self.export_btn.config(state='normal')
         normalize = self.normalize.get()
         randomize = self.randomize.get()
         trim = self.trim.get()
         length_config = self.length_config
         self.after(0, lambda: self.run_generation_threaded(self.items, self.api_keys, self.volume_settings, normalize, randomize, trim, length_config))
+
+    def export_pack(self):
+        confirmed = []
+        for slot_name, sel in self.selections.items():
+            for id, vol in sel.items():
+                confirmed.append({
+                    'slot_name': slot_name,
+                    'id': id,
+                    'path': f"temp_{id}.wav",
+                    'category': slot_name.split('_')[0].title()
+                })
+        from utils.exporter import package_assets
+        package_assets(confirmed, self.output_dir, self.update_console)
 
 
 
