@@ -14,7 +14,7 @@ class Candidate(TypedDict):
     quality_score: float
     analysis: Dict[str, Any]
 
-def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = False, filter: str = "duration:[0.1 TO 3.0]") -> Tuple[List[Dict[str, Any]], bool]:
+def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = False, filter: str = "duration:[0.1 TO 3.0]", logger_callback=None) -> Tuple[List[Dict[str, Any]], bool]:
     for token in tokens:
         base_url = 'https://freesound.org/apiv2/search/text/'
         params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads,license,analysis', 'filter': filter}
@@ -22,11 +22,13 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
             params['filter'] += ';license:cc0'
         for attempt in range(3):
             try:
-                print(f"[API] Searching Freesound for: '{query}' using Key {tokens.index(token)}...")
+                if logger_callback:
+                    logger_callback(f"[API] Searching Freesound for: '{query}' using Key {tokens.index(token)}...")
                 resp = requests.get(base_url, params=params, timeout=60)
-                time.sleep(1.5)
+                time.sleep(2.0)
                 if resp.status_code == 504:
-                    print("[RETRY] Freesound busy... waiting 5s")
+                    if logger_callback:
+                        logger_callback("[RETRY] Freesound busy... waiting 5s")
                     time.sleep(5)
                     continue
                 if resp.status_code == 200:
@@ -35,18 +37,20 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
                     is_cc0 = prefer_cc0 or all(r.get('license') == 'cc0' for r in results)
                     return results, is_cc0
             except requests.Timeout:
-                print("[RETRY] Freesound timeout... waiting 5s")
+                if logger_callback:
+                    logger_callback("[RETRY] Freesound timeout... waiting 5s")
                 time.sleep(5)
                 continue
             except Exception as e:
-                print(f"[ERROR] API request failed: {e}")
+                if logger_callback:
+                    logger_callback(f"[ERROR] API request failed: {e}")
                 break
     return [], True
 
-def search_slot(slot: Slot, tokens: List[str]) -> List[Candidate]:
+def search_slot(slot: Slot, tokens: List[str], logger_callback=None) -> List[Candidate]:
     query = build_slot_query(slot)
-    enhanced = enhance_query(query + " " + get_flavor_query(slot['category']))
-    results, _ = weighted_search_freesound(enhanced, tokens)
+    enhanced = enhance_query(query)
+    results, _ = weighted_search_freesound(enhanced, tokens, logger_callback=logger_callback)
     if not results:
         return []
     max_downloads = max(r['num_downloads'] for r in results) or 1

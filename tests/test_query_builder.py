@@ -26,7 +26,7 @@ def test_build_search_query_crumble() -> None:
 
 def test_enhance_query() -> None:
     result = enhance_query("test query")
-    expected = "test query dark fantasy souls-like low reverb gritty armor medieval dark souls style"
+    expected = "test query"
     assert result == expected
 
 def test_build_search_query_word_limit() -> None:
@@ -39,10 +39,11 @@ def test_build_slot_query() -> None:
         'display_name': 'Light Attack Hit',
         'pos_tags': ['light', 'attack', 'hit'],
         'neg_tags': ['synth', 'beep'],
+        'category': 'Combat',
         'id': None
     }
     result = build_slot_query(slot)
-    assert result == "light attack hit -synth -beep"
+    assert result == "light +attack +hit +metallic +impact +clash +heavy +gritty -beep -buzz -electronic -sine -synth"
 
 def test_get_flavor_query() -> None:
     assert get_flavor_query('Combat') == 'metallic heavy gritty dark fantasy souls-like'

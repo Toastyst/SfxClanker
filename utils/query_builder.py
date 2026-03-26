@@ -1,4 +1,5 @@
 import re
+import json
 from typing import List
 from utils.slots import Slot
 
@@ -15,7 +16,7 @@ def build_search_query(raw_term: str) -> str:
     return query
 
 def enhance_query(query: str) -> str:
-    return query + " dark fantasy souls-like low reverb gritty armor medieval dark souls style"
+    return query
 
 def get_progressive_queries(name: str, fallbacks: List[str]) -> List[str]:
     queries = [name] + fallbacks
@@ -30,9 +31,22 @@ def get_progressive_queries(name: str, fallbacks: List[str]) -> List[str]:
     return progressive
 
 def build_slot_query(slot: Slot) -> str:
-    pos = " ".join(slot["pos_tags"])
-    neg = " -".join(slot["neg_tags"])
-    return f"{pos} -{neg}"
+    fm = FlavorManager()
+    flavor_tags = [t for t in fm.get_tags(slot['category']) if t not in slot['pos_tags']]
+    pos = slot['pos_tags'] + flavor_tags
+    pos_str = ' +'.join(pos)
+    neg = sorted(set(slot['neg_tags'] + fm.profile['universal_negatives']))
+    neg_str = ' -'.join(neg)
+    return f"{pos_str} -{neg_str}"
+
+class FlavorManager:
+    def __init__(self):
+        with open('data/flavor_profiles.json', 'r') as f:
+            self.profiles = json.load(f)
+        self.profile = self.profiles['gritty_medieval']
+
+    def get_tags(self, category: str) -> List[str]:
+        return self.profile.get(category, [])
 
 def get_flavor_query(category: str) -> str:
     flavors = {

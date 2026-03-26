@@ -1,0 +1,8 @@
+{
+  "gritty_medieval": {
+    "universal_negatives": ["synth", "electronic", "beep", "buzz", "sine"],
+    "Combat": ["metallic", "impact", "clash", "heavy", "gritty"],
+    "Movement": ["stone", "wood", "creak", "whoosh", "organic"],
+    "UI": ["chime", "ting", "clean", "ethereal", "short"]
+  }
+}

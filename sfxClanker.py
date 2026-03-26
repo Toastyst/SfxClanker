@@ -212,7 +212,7 @@ class SFXClankerGUI(tk.Tk):
             self.title("SFX Clanker - HelloKnight Pack Generator")
             self.geometry("1480x920")
             self.minsize(1400, 750)
-            self.configure(bg='#2b2b2b')
+            self.configure(bg='#1a1a1a')
             self.sfx = SFXLibrary()
             self.slots = self.sfx.get_slots()
             self.output_dir = ""
@@ -225,10 +225,11 @@ class SFXClankerGUI(tk.Tk):
             self.strict_var = tk.BooleanVar(value=False)
             self.length_config = {'Combat': 1.0, 'Movement': 1.5, 'UI': 0.5, 'Test': 2.0}
             self.allow_multiple_var = tk.BooleanVar(value=False)
+            self.test_mode_var = tk.BooleanVar(value=False)
             self.selections = defaultdict(dict)
             self.console_queue = queue.Queue()
             self.progress = ttk.Progressbar(self, orient="horizontal", mode="determinate")
-            self.status_label = tk.Label(self, text="Ready", bg='#2b2b2b', fg='white')
+            self.status_label = tk.Label(self, text="Ready", bg='#1a1a1a', fg='white')
             self.left_frame = None
             self.create_widgets()
         except Exception as e:
@@ -237,55 +238,57 @@ class SFXClankerGUI(tk.Tk):
 
     def create_widgets(self) -> None:
         # Top compact frame
-        top_frame = tk.Frame(self, bg='#2b2b2b')
+        top_frame = tk.Frame(self, bg='#1a1a1a')
         top_frame.pack(fill=tk.X, padx=10, pady=5)
         # API key btn
         tk.Button(top_frame, text="Set API Key", command=lambda: self.set_api_key(), bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
         # Output folder btn
         tk.Button(top_frame, text="Choose Output Folder", command=self.choose_output_dir, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
         # Checklist
-        tk.Label(top_frame, text="Categories:", bg='#2b2b2b', fg='white').pack(side=tk.LEFT, padx=5)
+        tk.Label(top_frame, text="Categories:", bg='#1a1a1a', fg='white').pack(side=tk.LEFT, padx=5)
         self.check_vars = {}
         cats = ['Combat', 'Movement', 'UI']
         for cat in cats:
             var = tk.BooleanVar(value=True)
             self.check_vars[cat] = var
-            chk = tk.Checkbutton(top_frame, text=cat, variable=var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c')
+            chk = tk.Checkbutton(top_frame, text=cat, variable=var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c')
             chk.pack(side=tk.LEFT, padx=5)
         tk.Button(top_frame, text="Select All", command=self.select_all, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(top_frame, text="Test Mode (2 slots)", variable=self.test_mode_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.RIGHT, padx=5)
 
         # Middle notebook (70% vertical)
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure('TNotebook', background='#2b2b2b')
+        style.configure('TNotebook', background='#252525')
         style.configure('TNotebook.Tab', background='#4a4a4a', foreground='white')
         self.notebook = ttk.Notebook(self, style='TNotebook')
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Bottom frame: console and buttons
-        bottom_frame = tk.Frame(self, bg='#2b2b2b')
+        bottom_frame = tk.Frame(self, bg='#1a1a1a')
         bottom_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         # Console
-        self.console = tk.Text(bottom_frame, height=15, bg='#1e1e1e', fg='white', insertbackground='white')
+        self.console = tk.Text(bottom_frame, height=15, bg='#0f0f0f', fg='white', insertbackground='white')
         self.console.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.console.insert(tk.END, "Console output:\n")
+        self.console.config(state='disabled')
         # Buttons and controls
-        controls_frame = tk.Frame(bottom_frame, bg='#2b2b2b')
+        controls_frame = tk.Frame(bottom_frame, bg='#1a1a1a')
         controls_frame.pack(fill=tk.X, pady=5)
-        tk.Checkbutton(controls_frame, text="Normalize", variable=self.normalize, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Trim", variable=self.trim, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Random", variable=self.randomize, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Manual", variable=self.manual_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Multiple", variable=self.allow_multiple_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Strict", variable=self.strict_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Normalize", variable=self.normalize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Trim", variable=self.trim, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Random", variable=self.randomize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Manual", variable=self.manual_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Multiple", variable=self.allow_multiple_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Strict", variable=self.strict_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Scale(controls_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Vol").pack(side=tk.LEFT, padx=5)
         tk.Scale(controls_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS").pack(side=tk.LEFT, padx=5)
-        self.gen_btn = tk.Button(controls_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#00ff00', fg='black', font=('Arial', 12, 'bold'))
+        self.gen_btn = tk.Button(controls_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
         self.gen_btn.pack(side=tk.RIGHT, padx=10)
         # Progress and status
         self.progress = ttk.Progressbar(bottom_frame, orient="horizontal", mode="determinate")
         self.progress.pack(fill=tk.X, pady=5)
-        self.status_label = tk.Label(bottom_frame, text="Ready", bg='#2b2b2b', fg='white')
+        self.status_label = tk.Label(bottom_frame, text="Ready", bg='#1a1a1a', fg='white')
         self.status_label.pack(pady=5)
         self.poll_console()
 
@@ -332,9 +335,12 @@ class SFXClankerGUI(tk.Tk):
     def orchestrate_search(self):
         selected_cats = [cat for cat, var in self.check_vars.items() if var.get()]
         slots_to_search = [slot for slot in self.slots if slot['category'] in selected_cats]
+        if self.test_mode_var.get():
+            slots_to_search = slots_to_search[:2]
         cands_by_slot = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            futures = {executor.submit(search_slot, slot, self.api_keys): slot for slot in slots_to_search}
+            logger_callback = lambda msg: self.after(0, lambda m=msg: self.update_console(m))
+            futures = {executor.submit(search_slot, slot, self.api_keys, logger_callback): slot for slot in slots_to_search}
             count = 0
             for future in concurrent.futures.as_completed(futures):
                 slot = futures[future]
@@ -396,8 +402,10 @@ class SFXClankerGUI(tk.Tk):
         self.after(100, self.poll_console)
 
     def update_console(self, msg: str) -> None:
+        self.console.config(state='normal')
         self.console.insert(tk.END, msg + "\n")
         self.console.see(tk.END)
+        self.console.config(state='disabled')
         self.console.update()
 
     def update_progress(self, completed: int, total: int, item: Dict[str, Any]) -> None:
@@ -424,7 +432,7 @@ class SFXClankerGUI(tk.Tk):
             build_category_scrollable(self.notebook, cat, slots_cands, self.selections, self.allow_multiple_var.get())
         if is_manual:
             # Confirm btn in bottom
-            self.confirm_btn = tk.Button(self.gen_btn.master, text="Confirm Selections", command=self.read_selections_and_continue, bg='#00ff00', fg='black', font=('Arial', 12, 'bold'))
+            self.confirm_btn = tk.Button(self.gen_btn.master, text="Confirm Selections", command=self.read_selections_and_continue, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
             self.confirm_btn.pack(side=tk.LEFT, padx=10)
             self.gen_btn.pack_forget()
             self.gen_btn.pack(side=tk.RIGHT, padx=10)
