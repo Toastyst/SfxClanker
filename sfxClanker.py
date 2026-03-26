@@ -135,7 +135,17 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
     queries = [item['name']] + item['fallbacks']
     result = None
     used_query = None
-    if item.get('id'):
+    if item.get('manual_id'):
+        console_callback(f"Query: manual ID {item['manual_id']}")
+        result = get_sound_by_id(item['manual_id'], api_keys)
+        if result:
+            used_query = f"Manual ID {item['manual_id']}"
+            console_callback(f"Found 1 result")
+            console_callback(f"Picked ID {item['manual_id']} - {result['name']}")
+            is_cc0 = True  # Assume IDs are CC0
+        else:
+            result = None
+    elif item.get('id'):
         console_callback(f"Query: predefined ID {item['id']}")
         result = get_sound_by_id(item['id'], api_keys)
         if result:
@@ -550,12 +560,12 @@ class SFXClankerGUI(tk.Tk):
         notebook.select(tab)
         self.build_candidate_table(tab, category, candidates, self.selections, self.allow_multiple_var.get(), is_manual)
 
-    def create_tabbed_view(self, cands_by_cat: Dict[str, List[Candidate]], is_manual: bool):
+    def create_tabbed_view(self, slots_cands_by_cat: Dict[str, Dict[str, List[Candidate]]], is_manual: bool):
         # Clear notebook
         for tab_id in self.notebook.tabs():
             self.notebook.forget(tab_id)
-        for cat, cands in cands_by_cat.items():
-            self.create_category_tab(self.notebook, cat, cands, is_manual)
+        for cat, slots_cands in slots_cands_by_cat.items():
+            build_category_scrollable(self.notebook, cat, slots_cands, self.selections, self.allow_multiple_var.get())
         # Confirm btn in left frame
         self.confirm_btn = tk.Button(self.left_frame, text="Confirm Selections", command=self.read_selections_and_continue, bg='#00ff00', fg='black', font=('Arial', 14, 'bold'), height=2, width=20)
         self.confirm_btn.pack(side=tk.BOTTOM, pady=10)
@@ -580,18 +590,18 @@ class SFXClankerGUI(tk.Tk):
     def read_selections_and_continue(self):
         self.update_console("Starting generation...")
         for item in self.items:
-            cat = item['category'].title()
-            if cat in self.selections and self.selections[cat]:
+            slot_name = item['slot_name']
+            if slot_name in self.selections and self.selections[slot_name]:
                 if self.allow_multiple_var.get():
-                    selected_ids = list(self.selections[cat].keys())
+                    selected_ids = list(self.selections[slot_name].keys())
                     if selected_ids:
                         sel_id = random.choice(selected_ids)
                         item['manual_id'] = sel_id
-                        item['manual_vol'] = self.selections[cat][sel_id]
+                        item['manual_vol'] = self.selections[slot_name][sel_id]
                 else:
-                    sel_id = next(iter(self.selections[cat]))
+                    sel_id = next(iter(self.selections[slot_name]))
                     item['manual_id'] = sel_id
-                    item['manual_vol'] = self.selections[cat][sel_id]
+                    item['manual_vol'] = self.selections[slot_name][sel_id]
         self.confirm_btn.pack_forget()
         normalize = self.normalize.get()
         randomize = self.randomize.get()
