@@ -41,19 +41,19 @@ def build_slot_query(slot: Slot) -> str:
     mandatory = [t for t in mandatory if t and t not in bad_words]
     optional = [t for t in optional if t and t not in bad_words]
     exclude = [t for t in exclude if t and t not in bad_words]
-    # Unique: remove if in mandatory
-    optional = [t for t in optional if t not in mandatory]
     # Core term first
     core_term = slot['name'].split('_')[0]
-    # + for pos_tags + mandatory
-    pos_plus = sorted(set(slot['pos_tags'] + mandatory))  # unique sorted
-    pos_str = '+' + ' +'.join(pos_plus) if pos_plus else ''
-    # no prefix for optional
-    optional_str = ' '.join(optional)
+    # Two-Plus Rule: + for first two pos_tags
+    primary_pos = sorted(set(slot['pos_tags'][:2]))  # first two unique
+    pos_str = '+' + ' +'.join(primary_pos) if primary_pos else ''
+    # Flavor as Boosts: no prefix for mandatory + optional
+    flavor_tags = mandatory + optional
+    flavor_tags = [t for t in flavor_tags if t not in primary_pos]  # dedup
+    flavor_str = ' '.join(sorted(set(flavor_tags)))
     # - for neg_tags + universal + exclude
     neg = sorted(set(slot['neg_tags'] + fm.profile['universal_negatives'] + exclude))
     neg_str = '-' + ' -'.join(neg) if neg else ''
-    query = f"{core_term} {pos_str} {optional_str} {neg_str}".strip()
+    query = f"{core_term} {pos_str} {flavor_str} {neg_str}".strip()
     # Space hygiene
     query = ' '.join(query.split())
     return query

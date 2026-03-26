@@ -43,7 +43,7 @@ def test_build_slot_query() -> None:
         'id': None
     }
     result = build_slot_query(slot)
-    assert result == "combat +attack +hit +impact +light +metallic clash heavy gritty -beep -buzz -electronic -sine -synth"
+    assert result == "combat +attack +light clash gritty heavy impact metallic -beep -buzz -electronic -sine -synth"
 
 def test_get_flavor_query() -> None:
     assert get_flavor_query('Combat') == 'metallic heavy gritty dark fantasy souls-like'
