@@ -20,16 +20,17 @@ from collections import defaultdict
 from utils.sfx_library import SFXLibrary
 from utils.query_builder import build_search_query, enhance_query
 from utils.audio_processor import process_audio, preview_audio, AudioSegment
-from utils.search import weighted_search_freesound, get_sound_by_id
+from utils.search import weighted_search_freesound, get_sound_by_id, search_slot
+from utils.gui_helpers import build_category_scrollable
 
 class Candidate(TypedDict):
     id: str
     name: str
     duration: float
     preview_url: str
-    rms_loudness: float
+    downloads: int
     quality_score: float
-    tag: str
+    analysis: Dict[str, Any]
 
 LengthConfig = Dict[str, float]  # e.g., {'Combat': 1.0, 'UI': 0.5}
 
@@ -273,6 +274,7 @@ class SFXClankerGUI(tk.Tk):
             self.minsize(1400, 750)
             self.configure(bg='#2b2b2b')
             self.sfx = SFXLibrary()
+            self.slots = self.sfx.get_slots()
             self.output_dir = ""
             self.normalize = tk.BooleanVar(value=True)
             self.randomize = tk.BooleanVar(value=False)
@@ -283,7 +285,7 @@ class SFXClankerGUI(tk.Tk):
             self.strict_var = tk.BooleanVar(value=False)
             self.length_config = {'Combat': 1.0, 'Movement': 1.5, 'UI': 0.5, 'Test': 2.0}
             self.allow_multiple_var = tk.BooleanVar(value=False)
-            self.selections = defaultdict(lambda: defaultdict(float))
+            self.selections = defaultdict(dict)
             self.console_queue = queue.Queue()
             self.progress = ttk.Progressbar(self, orient="horizontal", mode="determinate")
             self.status_label = tk.Label(self, text="Ready", bg='#2b2b2b', fg='white')
@@ -299,7 +301,8 @@ class SFXClankerGUI(tk.Tk):
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
         tk.Label(self.left_frame, text="Select Categories:", bg='#2b2b2b', fg='white').pack()
         self.check_vars = {}
-        for cat in self.sfx.prompts:
+        cats = ['Combat', 'Movement', 'UI']
+        for cat in cats:
             var = tk.BooleanVar(value=True)
             self.check_vars[cat] = var
             chk = tk.Checkbutton(self.left_frame, text=cat, variable=var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c')
@@ -393,14 +396,22 @@ class SFXClankerGUI(tk.Tk):
         self.items = items
         self.api_keys = api_keys
         self.volume_settings = volume_settings
-        def collect_cands():
-            cands_by_cat = {}
-            selected_cats = [cat for cat, var in self.check_vars.items() if var.get()]
-            for cat in selected_cats:
-                cands = collect_candidates_for_category(cat, api_keys, self.update_console)
-                cands_by_cat[cat] = cands
-            self.after(0, lambda: self.create_tabbed_view(cands_by_cat, self.manual_var.get()))
-        threading.Thread(target=collect_cands, daemon=True).start()
+        selected_cats = [cat for cat, var in self.check_vars.items() if var.get()]
+        slots_to_search = [slot for slot in self.slots if any(slot['name'].startswith(cat.lower() + '_') for cat in selected_cats)]
+        if not slots_to_search:
+            messagebox.showerror("Error", "Select at least one category")
+            return
+        self.update_console("Searching slots...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {executor.submit(search_slot, slot, api_keys): slot for slot in slots_to_search}
+            cands_by_slot = {slot['name']: future.result() for future, slot in zip(futures, futures.keys())}
+        from collections import defaultdict
+        slots_cands_by_cat = defaultdict(dict)
+        for slot_name, cands in cands_by_slot.items():
+            cat = slot_name.split('_')[0].title()
+            slots_cands_by_cat[cat][slot_name] = cands
+        self.items = [{'slot_name': slot['name'], 'filename': self.sfx.filename_from_slot(slot), 'path': os.path.join(self.output_dir, self.sfx.filename_from_slot(slot))} for slot in slots_to_search]
+        self.create_tabbed_view(slots_cands_by_cat, self.manual_var.get())
 
     def _run_generation(self, items: List[Dict[str, Any]], api_keys: List[str], volume_settings: VolumeSettings, normalize: bool, randomize: bool, trim: bool, length_config: LengthConfig) -> None:
         self.console_queue.put("Worker thread started")
