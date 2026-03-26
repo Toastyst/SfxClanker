@@ -1,7 +1,7 @@
 import requests
 import os
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 def download_sfx(result: Dict[str, Any], path: str) -> bool:
     urls = [result['previews'].get('preview-hq-mp3'), result['previews'].get('preview-lq-mp3')]
