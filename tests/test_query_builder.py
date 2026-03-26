@@ -1,5 +1,6 @@
 import pytest
-from utils.query_builder import build_search_query, enhance_query
+from utils.query_builder import build_search_query, enhance_query, build_slot_query
+from utils.slots import Slot
 
 def test_build_search_query_basic() -> None:
     result = build_search_query("Light Attack Hit")
@@ -31,3 +32,14 @@ def test_enhance_query() -> None:
 def test_build_search_query_word_limit() -> None:
     result = build_search_query("This is a very long query with many words")
     assert result == "this +very +long +query"
+
+def test_build_slot_query() -> None:
+    slot: Slot = {
+        'name': 'combat_light_attack_hit',
+        'display_name': 'Light Attack Hit',
+        'pos_tags': ['light', 'attack', 'hit'],
+        'neg_tags': ['synth', 'beep'],
+        'id': None
+    }
+    result = build_slot_query(slot)
+    assert result == "light attack hit -synth -beep"
