@@ -1,5 +1,5 @@
 import pytest
-from utils.query_builder import build_search_query, enhance_query, build_slot_query
+from utils.query_builder import build_search_query, enhance_query, build_slot_query, get_flavor_query
 from utils.slots import Slot
 
 def test_build_search_query_basic() -> None:
@@ -43,3 +43,9 @@ def test_build_slot_query() -> None:
     }
     result = build_slot_query(slot)
     assert result == "light attack hit -synth -beep"
+
+def test_get_flavor_query() -> None:
+    assert get_flavor_query('Combat') == 'metallic heavy gritty dark fantasy souls-like'
+    assert get_flavor_query('Movement') == 'organic stone wood creak whoosh low reverb'
+    assert get_flavor_query('UI') == 'ethereal chime ting clean short'
+    assert get_flavor_query('Unknown') == 'dark fantasy souls-like'

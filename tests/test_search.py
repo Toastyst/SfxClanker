@@ -11,11 +11,12 @@ def test_search_slot(mock_weighted_search):
     ], True)
 
     slot: Slot = {
-        'name': 'combat_light_attack_hit',
-        'display_name': 'Light Attack Hit',
-        'pos_tags': ['light', 'attack'],
-        'neg_tags': ['synth'],
-        'id': None
+'name': 'combat_light_attack_hit',
+'display_name': 'Light Attack Hit',
+'pos_tags': ['light', 'attack'],
+'neg_tags': ['synth'],
+'category': 'Combat',
+'id': None
     }
 
     result = search_slot(slot, ['key'])

@@ -236,35 +236,25 @@ class SFXClankerGUI(tk.Tk):
             self.destroy()
 
     def create_widgets(self) -> None:
-        # Left frame: checklist
-        self.left_frame = tk.Frame(self, bg='#2b2b2b')
-        self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
-        tk.Label(self.left_frame, text="Select Categories:", bg='#2b2b2b', fg='white').pack()
+        # Top compact frame
+        top_frame = tk.Frame(self, bg='#2b2b2b')
+        top_frame.pack(fill=tk.X, padx=10, pady=5)
+        # API key btn
+        tk.Button(top_frame, text="Set API Key", command=lambda: self.set_api_key(), bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+        # Output folder btn
+        tk.Button(top_frame, text="Choose Output Folder", command=self.choose_output_dir, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+        # Checklist
+        tk.Label(top_frame, text="Categories:", bg='#2b2b2b', fg='white').pack(side=tk.LEFT, padx=5)
         self.check_vars = {}
         cats = ['Combat', 'Movement', 'UI']
         for cat in cats:
             var = tk.BooleanVar(value=True)
             self.check_vars[cat] = var
-            chk = tk.Checkbutton(self.left_frame, text=cat, variable=var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c')
-            chk.pack(anchor='w')
-        tk.Button(self.left_frame, text="Select All", command=self.select_all, bg='#4a4a4a', fg='white').pack(pady=5)
-        self.gen_btn = tk.Button(self.left_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#00ff00', fg='black', font=('Arial', 14, 'bold'))
-        self.gen_btn.pack(side=tk.BOTTOM, pady=10)
+            chk = tk.Checkbutton(top_frame, text=cat, variable=var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c')
+            chk.pack(side=tk.LEFT, padx=5)
+        tk.Button(top_frame, text="Select All", command=self.select_all, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
 
-        # Top toolbar frame
-        toolbar_frame = tk.Frame(self, bg='#2b2b2b')
-        toolbar_frame.pack(fill=tk.X, padx=10, pady=5)
-        # Folder btn left
-        tk.Button(toolbar_frame, text="Choose Output Folder", command=self.choose_output_dir, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
-        # Global scales
-        tk.Scale(toolbar_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Global Volume").pack(side=tk.LEFT, padx=5)
-        tk.Scale(toolbar_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS Target (dB)").pack(side=tk.LEFT, padx=5)
-        # Checkboxes
-        tk.Checkbutton(toolbar_frame, text="Strict Length Trim", variable=self.strict_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(toolbar_frame, text="Manual Selection Mode", variable=self.manual_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(toolbar_frame, text="Allow Multiple (random pick from selected)", variable=self.allow_multiple_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-
-        # Center notebook
+        # Middle notebook (70% vertical)
         style = ttk.Style()
         style.theme_use('clam')
         style.configure('TNotebook', background='#2b2b2b')
@@ -272,20 +262,31 @@ class SFXClankerGUI(tk.Tk):
         self.notebook = ttk.Notebook(self, style='TNotebook')
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Bottom frame
+        # Bottom frame: console and buttons
         bottom_frame = tk.Frame(self, bg='#2b2b2b')
-        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
-        tk.Checkbutton(bottom_frame, text="Normalize to -3 dB", variable=self.normalize, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(bottom_frame, text="Auto-trim silence", variable=self.trim, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(bottom_frame, text="Randomize sounds each batch (for funny packs)", variable=self.randomize, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-
-        # Progress and status
-        self.progress.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
-        self.status_label.pack(side=tk.BOTTOM, padx=10, pady=5)
+        bottom_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         # Console
-        self.console = tk.Text(self, height=25, bg='#1e1e1e', fg='white', insertbackground='white')
-        self.console.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, padx=10, pady=5)
+        self.console = tk.Text(bottom_frame, height=15, bg='#1e1e1e', fg='white', insertbackground='white')
+        self.console.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.console.insert(tk.END, "Console output:\n")
+        # Buttons and controls
+        controls_frame = tk.Frame(bottom_frame, bg='#2b2b2b')
+        controls_frame.pack(fill=tk.X, pady=5)
+        tk.Checkbutton(controls_frame, text="Normalize", variable=self.normalize, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Trim", variable=self.trim, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Random", variable=self.randomize, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Manual", variable=self.manual_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Multiple", variable=self.allow_multiple_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(controls_frame, text="Strict", variable=self.strict_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Scale(controls_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Vol").pack(side=tk.LEFT, padx=5)
+        tk.Scale(controls_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS").pack(side=tk.LEFT, padx=5)
+        self.gen_btn = tk.Button(controls_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#00ff00', fg='black', font=('Arial', 12, 'bold'))
+        self.gen_btn.pack(side=tk.RIGHT, padx=10)
+        # Progress and status
+        self.progress = ttk.Progressbar(bottom_frame, orient="horizontal", mode="determinate")
+        self.progress.pack(fill=tk.X, pady=5)
+        self.status_label = tk.Label(bottom_frame, text="Ready", bg='#2b2b2b', fg='white')
+        self.status_label.pack(pady=5)
         self.poll_console()
 
     def select_all(self) -> None:
@@ -298,6 +299,12 @@ class SFXClankerGUI(tk.Tk):
         if dir:
             self.output_dir = dir
             self.status_label.config(text=f"Output: {dir}")
+
+    def set_api_key(self) -> None:
+        key = simpledialog.askstring("API Key", "Enter FreeSound API key:")
+        if key:
+            save_api_key(key)
+            self.update_console("API key saved.")
 
     def generate_pack(self) -> None:
         if not self.output_dir:
@@ -335,13 +342,12 @@ class SFXClankerGUI(tk.Tk):
                     cands = future.result()
                     count += 1
                     msg = f"[Internal] Slot {count}/{len(slots_to_search)}: {slot['name']} search complete ({len(cands)} candidates found)"
-                    print(msg)
-                    self.update_console(msg)
-                    self.status_label.config(text=f"Searching slots: {count}/{len(slots_to_search)}")
+                    self.after(0, lambda m=msg: self.update_console(m))
+                    self.after(0, lambda: self.status_label.config(text=f"Searching slots: {count}/{len(slots_to_search)}"))
                     cands_by_slot[slot['name']] = cands
                 except Exception as e:
-                    print(f"[Error] Slot {slot['name']} search failed: {e}")
-                    self.update_console(f"[Error] Slot {slot['name']} search failed: {e}")
+                    error_msg = f"[Error] Slot {slot['name']} search failed: {e}"
+                    self.after(0, lambda m=error_msg: self.update_console(m))
         from collections import defaultdict
         slots_cands_by_cat = defaultdict(dict)
         for slot_name, cands in cands_by_slot.items():
@@ -416,9 +422,12 @@ class SFXClankerGUI(tk.Tk):
             self.notebook.forget(tab_id)
         for cat, slots_cands in slots_cands_by_cat.items():
             build_category_scrollable(self.notebook, cat, slots_cands, self.selections, self.allow_multiple_var.get())
-        # Confirm btn in left frame
-        self.confirm_btn = tk.Button(self.left_frame, text="Confirm Selections", command=self.read_selections_and_continue, bg='#00ff00', fg='black', font=('Arial', 14, 'bold'), height=2, width=20)
-        self.confirm_btn.pack(side=tk.BOTTOM, pady=10)
+        if is_manual:
+            # Confirm btn in bottom
+            self.confirm_btn = tk.Button(self.gen_btn.master, text="Confirm Selections", command=self.read_selections_and_continue, bg='#00ff00', fg='black', font=('Arial', 12, 'bold'))
+            self.confirm_btn.pack(side=tk.LEFT, padx=10)
+            self.gen_btn.pack_forget()
+            self.gen_btn.pack(side=tk.RIGHT, padx=10)
         self.update_console("Tables ready. Adjust volumes and confirm.")
         self.notebook.update()
         self.update()

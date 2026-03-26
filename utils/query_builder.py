@@ -33,3 +33,11 @@ def build_slot_query(slot: Slot) -> str:
     pos = " ".join(slot["pos_tags"])
     neg = " -".join(slot["neg_tags"])
     return f"{pos} -{neg}"
+
+def get_flavor_query(category: str) -> str:
+    flavors = {
+        'Combat': 'metallic heavy gritty dark fantasy souls-like',
+        'Movement': 'organic stone wood creak whoosh low reverb',
+        'UI': 'ethereal chime ting clean short'
+    }
+    return flavors.get(category, 'dark fantasy souls-like')
