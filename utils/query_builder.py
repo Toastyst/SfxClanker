@@ -1,5 +1,6 @@
 import re
 from typing import List
+from utils.slots import Slot
 
 def build_search_query(raw_term: str) -> str:
     words = re.findall(r'\w+', raw_term.lower())
@@ -27,3 +28,8 @@ def get_progressive_queries(name: str, fallbacks: List[str]) -> List[str]:
             enhanced = simple + " +" + " +".join(flavor_terms[:i])
             progressive.append(enhanced)
     return progressive
+
+def build_slot_query(slot: Slot) -> str:
+    pos = " ".join(slot["pos_tags"])
+    neg = " -".join(slot["neg_tags"])
+    return f"{pos} -{neg}"

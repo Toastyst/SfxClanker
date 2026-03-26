@@ -20,8 +20,7 @@ from collections import defaultdict
 from utils.sfx_library import SFXLibrary
 from utils.query_builder import build_search_query, enhance_query
 from utils.audio_processor import process_audio, preview_audio, AudioSegment
-from utils.cache import load_cache, save_cache, CacheEntry, get_sound_by_id, populate_cache, clear_cache
-from utils.search import weighted_search_freesound
+from utils.search import weighted_search_freesound, get_sound_by_id
 
 class Candidate(TypedDict):
     id: str
@@ -132,7 +131,6 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
     console_callback("─" * 37)
     console_callback(f"=== {item['filename']} ===")
     console_callback(f"Searching for {item['filename']}...")
-    cache = load_cache(api_keys[0], skip_validate=True)
     queries = [item['name']] + item['fallbacks']
     result = None
     used_query = None
@@ -146,28 +144,6 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
             is_cc0 = True  # Assume IDs are CC0
         else:
             result = None
-    if not result:
-        if item['filename'] in cache and cache[item['filename']].get('good_ids'):
-            ids = cache[item['filename']]['good_ids'][:]
-            console_callback(f"Query: cache hit")
-            console_callback(f"Found {len(ids)} cached results")
-            if random_mode and ids:
-                random_id = random.choice(ids)
-                result = get_sound_by_id(random_id, api_keys)
-                if result:
-                    used_query = f"Cache ID {random_id}"
-                    console_callback(f"Picked ID {random_id} - {result['name']}")
-                    is_cc0 = True
-            else:
-                # for non-random, try top 3
-                random.shuffle(ids)
-                for id in ids[:3]:
-                    result = get_sound_by_id(id, api_keys)
-                    if result:
-                        used_query = f"Cache ID {id}"
-                        console_callback(f"Picked ID {id} - {result['name']}")
-                        is_cc0 = True
-                        break
     if not result:
         for query in queries:
             boosted = build_search_query(query)
@@ -185,18 +161,6 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
                 break
             else:
                 is_cc0 = True  # default
-    if result and used_query and not used_query.startswith("ID ") and not used_query.startswith("Cache ID "):
-        # Populate cache with new good ID
-        filename = item['filename']
-        if filename not in cache:
-            cache[filename] = CacheEntry(good_ids=[], last_updated=datetime.now().isoformat())
-        good_ids = cache[filename]['good_ids']
-        id_str = str(result['id'])
-        if id_str not in good_ids:
-            good_ids.append(id_str)
-            cache[filename]['good_ids'] = good_ids[-5:]
-            cache[filename]['last_updated'] = datetime.now().isoformat()
-            save_cache(cache)
     if not result:
         console_callback("Skipped: No results")
         log_failed(output_dir, queries)
@@ -236,12 +200,10 @@ def run_headless() -> None:
     parser.add_argument('--random', action='store_true', help='Randomize sounds each batch')
     parser.add_argument('--trim', action='store_true', help='Trim silence')
     parser.add_argument('--categories', default='Combat,Movement,UI', help='Comma-separated categories')
-    parser.add_argument('--populate-cache', action='store_true', help='Populate cache with good IDs')
     parser.add_argument('--volume', type=float, default=1.0, help='Global volume multiplier (0.0-2.0)')
     parser.add_argument('--loudness', type=float, default=-14.0, help='RMS loudness target (dB)')
     parser.add_argument('--strict-length', action='store_true', help='Strict length trimming with fade')
     parser.add_argument('--manual', action='store_true', help='Manual selection mode (stub: auto-pick)')
-    parser.add_argument('--deep-pool', action='store_true', help='Populate deep cache')
     args = parser.parse_args(sys.argv[2:])
 
     output_dir = args.output
@@ -254,18 +216,6 @@ def run_headless() -> None:
     if not api_keys:
         print("Error: No API keys found. Run GUI first to set it.")
         sys.exit(1)
-
-    if args.populate_cache:
-        print("Populating cache...")
-        populate_cache(api_keys, categories)
-        print("Cache populated.")
-        sys.exit(0)
-
-    if args.deep_pool:
-        print("Populating deep cache...")
-        populate_cache(api_keys, categories, deep=True, target=40)
-        print("Deep cache populated.")
-        sys.exit(0)
 
     if not output_dir:
         print("Error: --output required for generation")
@@ -332,7 +282,6 @@ class SFXClankerGUI(tk.Tk):
             self.manual_var = tk.BooleanVar(value=False)
             self.strict_var = tk.BooleanVar(value=False)
             self.length_config = {'Combat': 1.0, 'Movement': 1.5, 'UI': 0.5, 'Test': 2.0}
-            self.deep_pool_var = tk.BooleanVar(value=False)
             self.allow_multiple_var = tk.BooleanVar(value=False)
             self.selections = defaultdict(lambda: defaultdict(float))
             self.console_queue = queue.Queue()
@@ -370,9 +319,7 @@ class SFXClankerGUI(tk.Tk):
         # Checkboxes
         tk.Checkbutton(toolbar_frame, text="Strict Length Trim", variable=self.strict_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(toolbar_frame, text="Manual Selection Mode", variable=self.manual_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(toolbar_frame, text="Deep Pool (40 high-quality IDs)", variable=self.deep_pool_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(toolbar_frame, text="Allow Multiple (random pick from selected)", variable=self.allow_multiple_var, bg='#2b2b2b', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Button(toolbar_frame, text="Clear Cache", command=lambda: [clear_cache(), self.update_console("Cache cleared")]).pack(side=tk.LEFT, padx=5)
 
         # Center notebook
         style = ttk.Style()
@@ -443,9 +390,6 @@ class SFXClankerGUI(tk.Tk):
             'loudness_target': self.loudness_var.get(),
             'strict_length': self.strict_var.get()
         }
-        if self.deep_pool_var.get():
-            populate_cache(api_keys, [cat for cat, var in self.check_vars.items() if var.get()], deep=True, target=40)
-            self.update_console("Deep cache populated")
         self.items = items
         self.api_keys = api_keys
         self.volume_settings = volume_settings

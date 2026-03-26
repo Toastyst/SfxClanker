@@ -1,34 +1,18 @@
-from typing import TypedDict, Dict, List, Optional
-import json
-
-class Prompt(TypedDict):
-    category: str
-    name: str
-    fallbacks: List[str]
-    id: Optional[str]
+from typing import List, Optional
+from utils.slots import get_slots, Slot
 
 class SFXLibrary:
     def __init__(self) -> None:
-        with open('prompts.json', 'r') as f:
-            data = json.load(f)
-        self.prompts: Dict[str, Dict[str, Prompt]] = {}
-        for item in data:
-            cat = item['category']
-            if cat not in self.prompts:
-                self.prompts[cat] = {}
-            self.prompts[cat][item['name']] = {
-                'fallbacks': item['fallbacks'],
-                'id': item.get('id'),
-                'category': cat,
-                'name': item['name']
-            }
+        self.slots: List[Slot] = get_slots()
 
-    def get_prompt(self, category: str, name: str) -> Optional[Prompt]:
-        if category in self.prompts and name in self.prompts[category]:
-            return self.prompts[category][name]
+    def get_slots(self) -> List[Slot]:
+        return self.slots
+
+    def get_slot(self, name: str) -> Optional[Slot]:
+        for slot in self.slots:
+            if slot['name'] == name:
+                return slot
         return None
 
-    def get_names(self, category: str) -> List[str]:
-        if category in self.prompts:
-            return list(self.prompts[category].keys())
-        return []
+    def filename_from_slot(self, slot: Slot) -> str:
+        return f"{slot['name']}.wav"
