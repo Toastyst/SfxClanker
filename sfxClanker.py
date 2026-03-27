@@ -18,9 +18,9 @@ from datetime import datetime
 from typing import List, Dict, Tuple, TypedDict, Any, Callable, Optional
 from collections import defaultdict
 from utils.sfx_library import SFXLibrary
-from utils.query_builder import build_search_query, enhance_query
+from utils.query_builder import simple_query
 from utils.audio_processor import process_audio, preview_audio, AudioSegment
-from utils.search import weighted_search_freesound, get_sound_by_id, search_slot
+from utils.search import weighted_search_freesound, get_sound_by_id, simple_search_slot
 from utils.gui_helpers import build_category_scrollable
 from utils.utils import download_sfx, generate_filename, log_message, log_failed
 
@@ -59,11 +59,10 @@ def save_api_key(key: str) -> None:
 # RANDOM MODE: pick from top 5 for funny packs
 def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, random_mode: bool, output_dir: str, console_callback: Callable[[str], None], trim: bool = False,
                  volume_settings: Optional[VolumeSettings] = None, length_config: Optional[LengthConfig] = None,
-                 manual_candidates: Optional[List[Candidate]] = None, manual_vol: Optional[float] = None) -> bool:
+                 manual_candidates: Optional[List[Candidate]] = None, manual_vol: Optional[float] = None, flavor: str = "", deep_pool: bool = False) -> bool:
     console_callback("─" * 37)
     console_callback(f"=== {item['filename']} ===")
     console_callback(f"Searching for {item['filename']}...")
-    queries = [item['name']] + item['fallbacks']
     result = None
     used_query = None
     if item.get('manual_id'):
@@ -87,26 +86,24 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
         else:
             result = None
     if not result:
-        for query in queries:
-            boosted = build_search_query(query)
-            log_message(output_dir, f"Query for {item['filename']}: {boosted}")
-            console_callback(f"Query: {boosted}")
-            results, is_cc0 = weighted_search_freesound(boosted, api_keys)
-            console_callback(f"Found {len(results)} results")
-            if results:
-                if random_mode:
-                    result = random.choice(results)
-                else:
-                    result = results[0]
-                used_query = boosted
-                console_callback(f"Picked ID {result['id']} - {result['name']}")
-                break
+        slot = item['slot']
+        cands = simple_search_slot(slot, flavor, deep_pool, api_keys)
+        console_callback(f"Found {len(cands)} candidates")
+        if cands:
+            if random_mode:
+                cand = random.choice(cands[:5])
             else:
-                is_cc0 = True  # default
+                cand = cands[0]
+            result = get_sound_by_id(cand['id'], api_keys)
+            used_query = f"Simple query for {slot['display_name']}"
+            console_callback(f"Picked ID {cand['id']} - {cand['name']}")
+            is_cc0 = True  # Assume CC0
+        else:
+            is_cc0 = True  # default
     if not result:
         console_callback("Skipped: No results")
-        log_failed(output_dir, queries)
-        log_message(output_dir, f"Skipped {item['filename']}: no results for any query")
+        log_failed(output_dir, [item['slot']['display_name']])
+        log_message(output_dir, f"Skipped {item['filename']}: no results")
         return False
     if not is_cc0:
         log_message(output_dir, f"NON-CC0: {item['filename']} ({used_query})")
@@ -145,6 +142,8 @@ def run_headless() -> None:
     parser.add_argument('--loudness', type=float, default=-14.0, help='RMS loudness target (dB)')
     parser.add_argument('--strict-length', action='store_true', help='Strict length trimming with fade')
     parser.add_argument('--manual', action='store_true', help='Manual selection mode (stub: auto-pick)')
+    parser.add_argument('--flavor', default='', help='Flavor text to append to queries')
+    parser.add_argument('--deep-pool', action='store_true', help='Use deep pool mode for better results')
     args = parser.parse_args(sys.argv[2:])
 
     output_dir = args.output
@@ -152,6 +151,8 @@ def run_headless() -> None:
     random_mode = args.random
     trim = args.trim
     categories = [c.strip() for c in args.categories.split(',')]
+    flavor = args.flavor
+    deep_pool = args.deep_pool
 
     api_keys = load_keys()
     if not api_keys:
@@ -171,7 +172,7 @@ def run_headless() -> None:
         cat_slots = [slot for slot in slots if slot['category'] == cat]
         for slot in cat_slots:
             filename = sfx.filename_from_slot(slot)
-            items.append({'slot_name': slot['name'], 'filename': filename, 'path': os.path.join(output_dir, filename)})
+            items.append({'slot': slot, 'filename': filename, 'path': os.path.join(output_dir, filename)})
 
     if not items:
         print("Error: No items for selected categories")
@@ -188,7 +189,7 @@ def run_headless() -> None:
     print(f"Generating {len(items)} SFX to {output_dir}...")
     success_count = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures_to_items = {executor.submit(process_item, item, api_keys, normalize, random_mode, output_dir, lambda msg: print(f"[{item['filename']}] {msg}"), trim, volume_settings, length_config): item for item in items}  # type: ignore[arg-type,misc]
+        futures_to_items = {executor.submit(process_item, item, api_keys, normalize, random_mode, output_dir, lambda msg: print(f"[{item['filename']}] {msg}"), trim, volume_settings, length_config, flavor=flavor, deep_pool=deep_pool): item for item in items}  # type: ignore[arg-type,misc]
         for future in concurrent.futures.as_completed(futures_to_items):
             item = futures_to_items[future]
             print(f"Processing {item['filename']}")
@@ -223,6 +224,8 @@ class SFXClankerGUI(tk.Tk):
             self.loudness_var = tk.DoubleVar(value=-14.0)
             self.manual_var = tk.BooleanVar(value=False)
             self.strict_var = tk.BooleanVar(value=False)
+            self.flavor_var = tk.StringVar()
+            self.deep_pool_var = tk.BooleanVar(value=False)
             self.length_config = {'Combat': 1.0, 'Movement': 1.5, 'UI': 0.5, 'Test': 2.0}
             self.allow_multiple_var = tk.BooleanVar(value=False)
             self.test_mode_var = tk.BooleanVar(value=False)
@@ -259,6 +262,9 @@ class SFXClankerGUI(tk.Tk):
         tk.Button(top_frame, text="Choose Output Folder", command=self.choose_output_dir, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
         tk.Scale(top_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Vol").pack(side=tk.LEFT, padx=10)
         tk.Scale(top_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS").pack(side=tk.LEFT, padx=10)
+        tk.Label(top_frame, text="Flavor:", bg='#1a1a1a', fg='white').pack(side=tk.LEFT, padx=5)
+        tk.Entry(top_frame, textvariable=self.flavor_var, width=20).pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(top_frame, text="Deep Pool", variable=self.deep_pool_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(top_frame, text="Normalize", variable=self.normalize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(top_frame, text="Trim", variable=self.trim, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(top_frame, text="Random", variable=self.randomize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
@@ -355,11 +361,13 @@ class SFXClankerGUI(tk.Tk):
         self.items = []
         for slot in slots_to_search:
             filename = self.sfx.filename_from_slot(slot)
-            self.items.append({'slot_name': slot['name'], 'filename': filename, 'path': os.path.join(self.output_dir, filename)})
+            self.items.append({'slot': slot, 'filename': filename, 'path': os.path.join(self.output_dir, filename)})
         cands_by_slot = {}
+        flavor = self.flavor_var.get()
+        deep_pool = self.deep_pool_var.get()
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             logger_callback = lambda msg: self.after(0, lambda m=msg: self.update_console(m))
-            futures = {executor.submit(search_slot, slot, self.api_keys, logger_callback, self.stop_event): slot for slot in slots_to_search}
+            futures = {executor.submit(simple_search_slot, slot, flavor, deep_pool, self.api_keys, logger_callback, self.stop_event): slot for slot in slots_to_search}
             count = 0
             for future in concurrent.futures.as_completed(futures):
                 slot = futures[future]

@@ -1,10 +1,11 @@
 import time
 import math
 import random
+import json
 from typing import List, Dict, Any, Tuple, TypedDict, Optional
 import requests
 from utils.slots import Slot
-from utils.query_builder import build_slot_query, enhance_query, get_flavor_query
+from utils.query_builder import simple_query
 
 class Candidate(TypedDict):
     id: str
@@ -15,7 +16,38 @@ class Candidate(TypedDict):
     quality_score: float
     analysis: Dict[str, Any]
 
-def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = False, filter: str = "duration:[0.1 TO 3.0]", logger_callback=None, stop_event=None) -> Tuple[List[Dict[str, Any]], bool]:
+request_counter = 0
+
+def simple_score(result: Dict[str, Any]) -> float:
+    target_dur = 1.2
+    dur_score = max(0, 10 - abs(result['duration'] - target_dur) * 5)
+    dl_score = math.log(result['num_downloads'] + 1) * 2
+    return dl_score + dur_score
+
+def load_cache() -> Dict[str, List[Candidate]]:
+    try:
+        with open('cache.json', 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_cache(cache: Dict[str, List[Candidate]]):
+    with open('cache.json', 'w') as f:
+        json.dump(cache, f, indent=2)
+
+def to_candidate(r: Dict[str, Any]) -> Candidate:
+    return {
+        'id': str(r['id']),
+        'name': r['name'],
+        'duration': r['duration'],
+        'preview_url': r['previews'].get('preview-lq-mp3', ''),
+        'downloads': r['num_downloads'],
+        'quality_score': simple_score(r),
+        'analysis': r.get('analysis', {})
+    }
+
+def weighted_search_freesound(query: str, tokens: List[str], target: int = 30, prefer_cc0: bool = True, api_filter: str = "", logger_callback=None, stop_event=None) -> Tuple[List[Dict[str, Any]], bool]:
+    global request_counter
     if stop_event and stop_event.is_set():
         if logger_callback:
             logger_callback("[System] Thread Aborted")
@@ -23,7 +55,7 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
     sleep_multiplier = [1.0]
     for token in tokens:
         base_url = 'https://freesound.org/apiv2/search/text/'
-        params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads,license,analysis', 'filter': filter}
+        params = {'token': token, 'query': query, 'sort': 'downloads_desc,rating_desc', 'fields': 'id,name,previews,duration,num_downloads,license,analysis', 'filter': api_filter or "duration:[0.1 TO 4.0]"}
         if prefer_cc0:
             params['filter'] += ';license:cc0'
         for attempt in range(3):
@@ -33,6 +65,7 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
                 if logger_callback:
                     logger_callback(f"[API] Searching Freesound for: '{query}' using Key {tokens.index(token)}...")
                 resp = requests.get(base_url, params=params, timeout=60)
+                request_counter += 1
                 if resp.status_code == 429:
                     if logger_callback:
                         logger_callback("[Warning] Rate limit hit. Increasing delay...")
@@ -46,7 +79,7 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
                     continue
                 if resp.status_code == 200:
                     data = resp.json()
-                    results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 5 and ('analysis' not in r or r['analysis'].get('ac_loudness_mean', 0) >= -30)][:30]
+                    results = [r for r in data['results'] if r['duration'] < 4 and r['num_downloads'] > 10][:target]
                     is_cc0 = prefer_cc0 or all(r.get('license') == 'cc0' for r in results)
                     return results, is_cc0
             except requests.Timeout:
@@ -60,35 +93,32 @@ def weighted_search_freesound(query: str, tokens: List[str], prefer_cc0: bool = 
                 break
     return [], True
 
-def search_slot(slot: Slot, tokens: List[str], logger_callback=None, stop_event=None) -> List[Candidate]:
+def simple_search_slot(slot: Slot, flavor: str = "", deep_pool: bool = False, tokens: List[str] = [], logger_callback=None, stop_event=None) -> List[Candidate]:
     if stop_event and stop_event.is_set():
         if logger_callback:
             logger_callback("[System] Thread Aborted")
         return []
-    query = build_slot_query(slot)
-    enhanced = enhance_query(query)
+    query = simple_query(slot, flavor)
     if logger_callback:
-        logger_callback(f"[API] Searching {slot['name']} ({slot['category']} - Gritty Medieval)...")
-    results, _ = weighted_search_freesound(enhanced, tokens, logger_callback=logger_callback, stop_event=stop_event)
-    if not results:
-        return []
-    max_downloads = max(r['num_downloads'] for r in results) or 1
-    candidates = []
-    for r in results:
-        dur_score = 10 - abs(r['duration'] - 1.2) / 1.2 * 5
-        dl_score = math.log(r['num_downloads'] + 1) / math.log(max_downloads + 1) * 5 if max_downloads > 1 else 0
-        quality_score = dur_score + dl_score
-        candidates.append({
-            'id': str(r['id']),
-            'name': r['name'],
-            'duration': r['duration'],
-            'preview_url': r['previews'].get('preview-lq-mp3', ''),
-            'downloads': r['num_downloads'],
-            'quality_score': quality_score,
-            'analysis': r.get('analysis', {})
-        })
-    candidates.sort(key=lambda c: c['quality_score'], reverse=True)
-    return candidates
+        logger_callback(f"[API] Searching {slot['name']} ({slot['category']})...")
+    if deep_pool:
+        cache = load_cache()
+        cached = cache.get(slot['name'], [])
+        good_cached = [c for c in cached if c['downloads'] > 10 and c['duration'] < 4]
+        if len(good_cached) >= 50 or request_counter > 60:
+            return sorted(good_cached, key=lambda c: c['quality_score'], reverse=True)[:50]
+        else:
+            results, _ = weighted_search_freesound(query, tokens, target=50, prefer_cc0=True, api_filter="duration:[0.5 TO 2.5];num_downloads:>20", logger_callback=logger_callback, stop_event=stop_event)
+            new_cands = [to_candidate(r) for r in results]
+            all_cands = good_cached + new_cands
+            unique_cands = list({c['id']: c for c in all_cands}.values())
+            sorted_cands = sorted(unique_cands, key=lambda c: c['quality_score'], reverse=True)[:50]
+            cache[slot['name']] = sorted_cands
+            save_cache(cache)
+            return sorted_cands
+    else:
+        results, _ = weighted_search_freesound(query, tokens, target=30, prefer_cc0=True, logger_callback=logger_callback, stop_event=stop_event)
+        return [to_candidate(r) for r in results]
 
 def get_sound_by_id(sound_id: str, tokens: List[str]) -> Optional[Dict[str, Any]]:
     for token in tokens:

@@ -1,52 +1,51 @@
 # Implementation Plan
 
 [Overview]
-This plan fixes the SFX Clanker GUI generation flow by cleaning up layout, ensuring tables always show in both normal/manual modes, fixing console output, live preview, scroll, and removing dead code while preserving headless mode.
+Simplify search and cache to broad simple queries, optional user flavor, client-side filtering, Deep Pool opt-in for larger pools, no auto-flavor complexity.
 
-The current GUI has broken flow: normal mode doesn't show tables reliably, console blank, leftover manual_frame/popup code. Cleanup creates clean layout (left checklist, top toolbar, center tabs, bottom controls), ensures tables populate with top candidate pre-checked in normal mode, multiple in manual, live volume preview, detailed console, scroll wheel. No new features/files/deps.
+The current search uses FlavorManager auto-tags from flavor_profiles.json, enhance_query (empty), quality_score, client filter in weighted_search_freesound. process_item uses simple build_search_query + weighted_search_freesound. No cache.py, cache.json unused. GUI has no flavor input or Deep Pool chk.
+
+New design: Core search broad (name + fallbacks[:2]), optional flavor text append, client filter dur<4 dl>10 CC0 prefer, simple score dl + dur closeness. Deep Pool: target 50, stricter filter. GUI: flavor text field, Deep Pool chk.
+
+Preserve UI/generation flow, headless.
 
 [Types]
-No new types needed; reuse existing Candidate(TypedDict), VolumeSettings(TypedDict), Slot(TypedDict).
+No new types; reuse Candidate, add DeepPoolConfig(TypedDict): {'deep': bool, 'target': int = 50}.
 
 [Files]
-Modify sfxClanker.py (main layout/flow cleanup) and utils/audio_processor.py (live preview volume).
+Modify sfxClanker.py (GUI flavor/Deep Pool input), utils/search.py (simplified weighted_search_freesound, search_slot), utils/query_builder.py (simple build_search_query, remove FlavorManager/build_slot_query), create utils/cache.py (Deep Pool logic, cache.json).
 
-No new files, no deletions.
+No deletions.
 
 [Functions]
-Modified functions in sfxClanker.py:
-- create_widgets: Final clean layout (left checklist, top toolbar with folder/vol/RMS/checkboxes, center notebook, bottom controls).
-- generate_pack: Always collect candidates, build tabbed tables, start generation after confirm (no early return).
-- build_candidate_table: Add live preview bind on scale, fix MouseWheel, auto-check top in normal mode.
-- create_tabbed_view, create_category_tab: Ensure tables appear, confirm button always added.
-- process_item: Ensure detailed console messages.
-
-utils/audio_processor.py:
-- preview_audio: Support vol_factor for live preview.
-
-Remove: show_manual_selection, old manual_frame references, duplicate generation paths.
+Modified:
+- utils/search.py: weighted_search_freesound (broad query, client filter dl>10 dur<4 prefer CC0, simple score dl + dur closeness, deep param for target).
+- utils/search.py: search_slot (use simple query, optional flavor, deep).
+- utils/query_builder.py: build_search_query (keep simple, remove special rules if not needed).
+- utils/query_builder.py: remove enhance_query, build_slot_query, FlavorManager, get_flavor_query.
+- utils/cache.py: new populate_cache(slot, deep: bool, target: int) -> List[Candidate] (cache.json, larger for deep).
+- sfxClanker.py: generate_pack (add self.deep_pool_var, self.flavor_var, pass to search_slot).
+- sfxClanker.py: create_widgets (add Deep Pool chk, flavor text field in top toolbar).
 
 [Classes]
-SFXClankerGUI:
-- Remove leftover manual_frame, old popup logic.
-- Ensure self.notebook center, self.selections, console_queue preserved.
+No class changes.
 
 [Dependencies]
 No changes.
 
 [Testing]
-- Normal mode: Test → Generate → tables with top pre-checked, live vol preview, detailed console, generated.
-- Manual mode: tables multiple cands, select/vol live, Confirm → generate.
-- Scroll wheel on tables.
+- Normal: fast, broad results.
+- Deep Pool ON: 50 candidates per slot.
+- Flavor input: appends to query.
 - Headless unchanged.
+- pytest tests/, mypy .
 
 [Implementation Order]
-1. Read current create_widgets, generate_pack, build_candidate_table, create_tabbed_view, create_category_tab in sfxClanker.py.
-2. Update utils/audio_processor.py preview_audio(path, vol_factor=1.0).
-3. In sfxClanker.py: Finalize create_widgets clean layout.
-4. Update generate_pack always collect cands, call create_tabbed_view.
-5. Update build_candidate_table live preview/MouseWheel/auto-check.
-6. Ensure create_tabbed_view/create_category_tab both modes.
-7. Remove dead code (manual_frame, popup, duplicates).
-8. Restore detailed console in process_item/generation.
-9. Test normal/manual + headless.
+1. Create utils/cache.py with populate_cache (read/write cache.json, deep target 50).
+2. Simplify utils/query_builder.py: keep build_search_query simple, remove FlavorManager/build_slot_query/enhance_query.
+3. Update utils/search.py: weighted_search_freesound broad + client filter dl>10 dur<4 prefer CC0, simple score, deep param.
+4. Update search_slot: simple query + optional flavor, deep.
+5. sfxClanker.py: add self.deep_pool_var, self.flavor_var in create_widgets, pass to search_slot.
+6. Update process_item if needed (already simple).
+7. Test normal/Deep Pool/flavor/headless, pytest/mypy.
+8. Git pull/commit/push.

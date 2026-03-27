@@ -4,8 +4,7 @@ class Slot(TypedDict):
     name: str
     display_name: str
     category: str
-    pos_tags: List[str]
-    neg_tags: List[str]
+    fallbacks: List[str]
     id: Optional[str]
 
 def get_slots() -> List[Slot]:
