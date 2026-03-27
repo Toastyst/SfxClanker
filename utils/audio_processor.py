@@ -1,7 +1,7 @@
 import os
 import math
+import winsound
 from pydub import AudioSegment
-import pygame
 from typing import Optional
 
 def process_audio(input_path: str, output_path: str, normalize_flag: bool, trim: bool,
@@ -36,22 +36,17 @@ def process_audio(input_path: str, output_path: str, normalize_flag: bool, trim:
 
 def preview_audio(path: str, vol_factor: float = 1.0, blocking: bool = False) -> None:
     try:
-        pygame.mixer.init()
-        pygame.mixer.music.stop()  # Stop previous sound
-        pygame.mixer.music.load(path)
-        pygame.mixer.music.set_volume(vol_factor)
-        pygame.mixer.music.play()
-        if blocking:
-            while pygame.mixer.music.get_busy():
-                pygame.time.Clock().tick(10)
-            os.remove(path)  # Remove after play
+        audio = AudioSegment.from_file(path, format="mp3")
+        audio = apply_per_sound_volume(audio, vol_factor)
+        temp_wav = path.replace('.mp3', '_preview.wav')
+        audio.export(temp_wav, format="wav")
+        winsound.PlaySound(temp_wav, winsound.SND_FILENAME)
+        os.remove(temp_wav)
     except Exception as e:
         print(f"Preview failed: {e}")
-        if blocking:
-            try:
-                os.remove(path)
-            except:
-                pass
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
 
 def apply_volume_loudness(audio: AudioSegment, global_vol: float, rms_target: float) -> AudioSegment:
     # RMS normalize: approximate LUFS with RMS dB

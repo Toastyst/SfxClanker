@@ -238,23 +238,31 @@ class SFXClankerGUI(tk.Tk):
             self.destroy()
 
     def create_widgets(self) -> None:
-        # Top compact frame
-        top_frame = tk.Frame(self, bg='#1a1a1a')
-        top_frame.pack(fill=tk.X, padx=10, pady=5)
-        # API key btn
-        tk.Button(top_frame, text="Set API Key", command=lambda: self.set_api_key(), bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
-        # Output folder btn
-        tk.Button(top_frame, text="Choose Output Folder", command=self.choose_output_dir, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
-        # Checklist
-        tk.Label(top_frame, text="Categories:", bg='#1a1a1a', fg='white').pack(side=tk.LEFT, padx=5)
+        # Left frame: checklist
+        self.left_frame = tk.Frame(self, bg='#1a1a1a', width=200)
+        self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=5)
+        self.left_frame.pack_propagate(False)
+        tk.Label(self.left_frame, text="Categories:", bg='#1a1a1a', fg='white', font=('Arial', 10, 'bold')).pack(anchor='w', pady=5)
         self.check_vars = {}
         cats = ['Combat', 'Movement', 'UI']
         for cat in cats:
             var = tk.BooleanVar(value=True)
             self.check_vars[cat] = var
-            chk = tk.Checkbutton(top_frame, text=cat, variable=var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c')
-            chk.pack(side=tk.LEFT, padx=5)
-        tk.Button(top_frame, text="Select All", command=self.select_all, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+            chk = tk.Checkbutton(self.left_frame, text=cat, variable=var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c')
+            chk.pack(anchor='w', padx=10, pady=2)
+        tk.Button(self.left_frame, text="Select All", command=self.select_all, bg='#4a4a4a', fg='white').pack(anchor='w', padx=10, pady=5)
+
+        # Top toolbar
+        top_frame = tk.Frame(self, bg='#1a1a1a')
+        top_frame.pack(fill=tk.X, padx=10, pady=5)
+        tk.Button(top_frame, text="Set API Key", command=lambda: self.set_api_key(), bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+        tk.Button(top_frame, text="Choose Output Folder", command=self.choose_output_dir, bg='#4a4a4a', fg='white').pack(side=tk.LEFT, padx=5)
+        tk.Scale(top_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Vol").pack(side=tk.LEFT, padx=10)
+        tk.Scale(top_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS").pack(side=tk.LEFT, padx=10)
+        tk.Checkbutton(top_frame, text="Normalize", variable=self.normalize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(top_frame, text="Trim", variable=self.trim, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(top_frame, text="Random", variable=self.randomize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
+        tk.Checkbutton(top_frame, text="Strict", variable=self.strict_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Button(top_frame, text="STOP", command=self.stop_search, bg='#880808', fg='white').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(top_frame, text="Test Mode (2 slots)", variable=self.test_mode_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.RIGHT, padx=5)
 
@@ -274,22 +282,19 @@ class SFXClankerGUI(tk.Tk):
         self.console.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.console.insert(tk.END, "Console output:\n")
         self.console.config(state='disabled')
-        # Buttons and controls
+        # Controls
         controls_frame = tk.Frame(bottom_frame, bg='#1a1a1a')
         controls_frame.pack(fill=tk.X, pady=5)
-        tk.Checkbutton(controls_frame, text="Normalize", variable=self.normalize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Trim", variable=self.trim, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Random", variable=self.randomize, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(controls_frame, text="Manual", variable=self.manual_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
         tk.Checkbutton(controls_frame, text="Multiple", variable=self.allow_multiple_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(controls_frame, text="Strict", variable=self.strict_var, bg='#1a1a1a', fg='white', selectcolor='#3c3c3c').pack(side=tk.LEFT, padx=5)
-        tk.Scale(controls_frame, from_=0.0, to=2.0, resolution=0.1, orient=tk.HORIZONTAL, variable=self.volume_var, label="Vol").pack(side=tk.LEFT, padx=5)
-        tk.Scale(controls_frame, from_=-20.0, to=0.0, resolution=1.0, orient=tk.HORIZONTAL, variable=self.loudness_var, label="RMS").pack(side=tk.LEFT, padx=5)
+        self.gen_btn = tk.Button(controls_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
+        self.gen_btn.pack(side=tk.LEFT, padx=10)
+        self.confirm_btn = tk.Button(controls_frame, text="Confirm Selections", command=self.read_selections_and_continue, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
+        self.confirm_btn.pack(side=tk.LEFT, padx=10)
+        self.confirm_btn.pack_forget()  # Hide initially
         self.export_btn = tk.Button(controls_frame, text="EXPORT CONFIRMED", command=self.export_pack, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
         self.export_btn.pack(side=tk.RIGHT, padx=10)
         self.export_btn.config(state='disabled')
-        self.gen_btn = tk.Button(controls_frame, text="GENERATE SOUND PACK", command=self.generate_pack, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
-        self.gen_btn.pack(side=tk.RIGHT, padx=10)
         # Progress and status
         self.progress = ttk.Progressbar(bottom_frame, orient="horizontal", mode="determinate")
         self.progress.pack(fill=tk.X, pady=5)
@@ -347,6 +352,10 @@ class SFXClankerGUI(tk.Tk):
         slots_to_search = [slot for slot in self.slots if slot['category'] in selected_cats]
         if self.test_mode_var.get():
             slots_to_search = slots_to_search[:2]
+        self.items = []
+        for slot in slots_to_search:
+            filename = self.sfx.filename_from_slot(slot)
+            self.items.append({'slot_name': slot['name'], 'filename': filename, 'path': os.path.join(self.output_dir, filename)})
         cands_by_slot = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             logger_callback = lambda msg: self.after(0, lambda m=msg: self.update_console(m))
@@ -442,28 +451,15 @@ class SFXClankerGUI(tk.Tk):
         for cat, slots_cands in slots_cands_by_cat.items():
             build_category_scrollable(self.notebook, cat, slots_cands, self.selections, self.allow_multiple_var.get())
         if is_manual:
-            # Confirm btn in bottom
-            self.confirm_btn = tk.Button(self.gen_btn.master, text="Confirm Selections", command=self.read_selections_and_continue, bg='#d4af37', fg='black', font=('Arial', 12, 'bold'))
             self.confirm_btn.pack(side=tk.LEFT, padx=10)
-            self.gen_btn.pack_forget()
-            self.gen_btn.pack(side=tk.RIGHT, padx=10)
+        else:
+            self.confirm_btn.pack_forget()
+        self.gen_btn.config(state='normal')
         self.update_console("Tables ready. Adjust volumes and confirm.")
         self.notebook.update()
         self.update()
 
-    def live_preview(self, cand: Candidate, vol: float):
-        url = cand['preview_url']
-        if url:
-            temp = f"temp_live_{cand['id']}.mp3"
-            try:
-                resp = requests.get(url, timeout=10)
-                if resp.status_code == 200:
-                    with open(temp, 'wb') as f:
-                        f.write(resp.content)
-                    preview_audio(temp, vol)
-                    os.remove(temp)
-            except:
-                pass
+
 
     def read_selections_and_continue(self):
         self.update_console("Starting generation...")

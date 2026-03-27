@@ -2,6 +2,7 @@ import tkinter as tk
 from typing import Dict, List, Callable
 from utils.slots import Slot
 from utils.search import Candidate
+from utils.audio_processor import preview_audio
 
 def build_slot_section(parent: tk.Frame, slot: Slot, cands: List[Candidate], selections: Dict[str, Dict[str, float]], allow_multiple: bool) -> None:
     # Bold header
@@ -23,16 +24,15 @@ def build_slot_section(parent: tk.Frame, slot: Slot, cands: List[Candidate], sel
         scale.set(1.0)
         scale.pack(side=tk.LEFT, padx=5)
         # Play btn
-        def play(url=cand['preview_url']):
-            import requests, os, winsound
+        def play(url=cand['preview_url'], scale=scale):
+            import requests, os
             temp = f"temp_{cand['id']}.mp3"
             try:
                 resp = requests.get(url, timeout=10)
                 if resp.status_code == 200:
                     with open(temp, 'wb') as f:
                         f.write(resp.content)
-                    winsound.PlaySound(temp, winsound.SND_FILENAME)
-                    os.remove(temp)
+                    preview_audio(temp, scale.get())
             except:
                 pass
         btn = tk.Button(row_frame, text="Play", command=play, bg='#4a4a4a', fg='white')
