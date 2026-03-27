@@ -98,27 +98,58 @@ def simple_search_slot(slot: Slot, flavor: str = "", deep_pool: bool = False, to
         if logger_callback:
             logger_callback("[System] Thread Aborted")
         return []
-    query = simple_query(slot, flavor)
     if logger_callback:
         logger_callback(f"[API] Searching {slot['name']} ({slot['category']})...")
-    if deep_pool:
+    # Build query chain: main, each fallback, broad
+    main_query = simple_query(slot, flavor)
+    queries = [main_query] + slot['fallbacks'] + [slot['display_name']]
+    all_results = []
+    successful_query = None
+    for i, query in enumerate(queries):
+        if stop_event and stop_event.is_set():
+            break
+        if i == 0:
+            if logger_callback:
+                logger_callback(f"[API] Trying main query: {query}")
+        elif i <= len(slot['fallbacks']):
+            if logger_callback:
+                logger_callback(f"[API] Main query failed → trying fallback {i}/{len(slot['fallbacks'])}: {query}")
+        else:
+            if logger_callback:
+                logger_callback(f"[API] Fallbacks failed → trying broad query: {query}")
+        if deep_pool:
+            cache = load_cache()
+            cached = cache.get(slot['name'], [])
+            good_cached = [c for c in cached if c['downloads'] > 10 and c['duration'] < 4]
+            if len(good_cached) >= 50 or request_counter > 60:
+                return sorted(good_cached, key=lambda c: c['quality_score'], reverse=True)[:50]
+            results, _ = weighted_search_freesound(query, tokens, target=50, prefer_cc0=True, api_filter="duration:[0.5 TO 2.5];num_downloads:>20", logger_callback=logger_callback, stop_event=stop_event)
+        else:
+            results, _ = weighted_search_freesound(query, tokens, target=30, prefer_cc0=True, logger_callback=logger_callback, stop_event=stop_event)
+        if results:
+            all_results.extend(results)
+            successful_query = query
+            if logger_callback:
+                logger_callback(f"[API] Success with query: {successful_query} ({len(results)} results)")
+            break
+    if not all_results:
+        if logger_callback:
+            logger_callback(f"[API] No results found for {slot['name']} after all queries")
+        return []
+    # For deep pool, cache the results
+    if deep_pool and successful_query:
+        new_cands = [to_candidate(r) for r in all_results]
         cache = load_cache()
         cached = cache.get(slot['name'], [])
         good_cached = [c for c in cached if c['downloads'] > 10 and c['duration'] < 4]
-        if len(good_cached) >= 50 or request_counter > 60:
-            return sorted(good_cached, key=lambda c: c['quality_score'], reverse=True)[:50]
-        else:
-            results, _ = weighted_search_freesound(query, tokens, target=50, prefer_cc0=True, api_filter="duration:[0.5 TO 2.5];num_downloads:>20", logger_callback=logger_callback, stop_event=stop_event)
-            new_cands = [to_candidate(r) for r in results]
-            all_cands = good_cached + new_cands
-            unique_cands = list({c['id']: c for c in all_cands}.values())
-            sorted_cands = sorted(unique_cands, key=lambda c: c['quality_score'], reverse=True)[:50]
-            cache[slot['name']] = sorted_cands
-            save_cache(cache)
-            return sorted_cands
+        all_cands = good_cached + new_cands
+        unique_cands = list({c['id']: c for c in all_cands}.values())
+        sorted_cands = sorted(unique_cands, key=lambda c: c['quality_score'], reverse=True)[:50]
+        cache[slot['name']] = sorted_cands
+        save_cache(cache)
+        return sorted_cands
     else:
-        results, _ = weighted_search_freesound(query, tokens, target=30, prefer_cc0=True, logger_callback=logger_callback, stop_event=stop_event)
-        return [to_candidate(r) for r in results]
+        return [to_candidate(r) for r in all_results]
 
 def get_sound_by_id(sound_id: str, tokens: List[str]) -> Optional[Dict[str, Any]]:
     for token in tokens:
