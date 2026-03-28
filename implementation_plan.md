@@ -1,30 +1,57 @@
-# Implementation Plan for Color-Coded Console
+# Implementation Plan
 
-## Overview
-Add color-coded console output to the GUI console in sfxClanker.py to improve readability by replacing harsh white text with categorized colors: green for success, red for skipped, cyan for queries, gray for info.
+## [Overview]
+Organize the SFXClanker project logically by improving modularity, fixing type inconsistencies, and aligning with .clinerules for refactor goals: modularity, testability, type safety. This addresses documentation overlap, unclear Slot TypedDict, and ensures consistent structure.
 
-## Files
-- Modify sfxClanker.py (SFXClankerGUI.create_widgets, update_console, poll_console, get_tag)
+The project is already well-structured with utils/, tests/, but has type errors in Slot TypedDict (missing fallbacks, extra pos_tags/neg_tags), mypy issues, and some duplication. README and sfxClanker.design.md overlap on features; consolidate into README. prompts.json is raw data; load from SFXLibrary class.
 
-## Functions
-- update_console(msg: str, tag: str = ""): accept optional tag, insert with tag
-- get_tag(msg: str) -> str: detect tag from keywords
-- poll_console(): handle tuple (msg, tag) or plain msg
+This plan fixes types, organizes prompts into code, cleans docs, ensures 100% test pass/mypy clean.
 
-## Classes
-- SFXClankerGUI: add tag_config in create_widgets, update poll_console and update_console
+## [Types]
+Update Slot TypedDict in utils/slots.py to include all fields used:
 
-## Dependencies
-No new.
+class Slot(TypedDict):
+    name: str
+    display_name: str
+    category: str
+    fallbacks: List[str]
+    id: Optional[str]
+    pos_tags: List[str]
+    neg_tags: List[str]
 
-## Testing
-- Run python sfxClanker.py
-- Generate pack with Combat category
-- Confirm colors: green success, red skipped, cyan queries, gray info
+Add TypedDict for Candidate in utils/search.py.
 
-## Implementation Order
-1. Add tag_config in create_widgets
-2. Update update_console and add get_tag
-3. Update poll_console for tuples
-4. Add explicit tuples in process_item and orchestrate_search
-5. Test GUI, confirm colors
+## [Files]
+- **utils/slots.py**: Update Slot TypedDict to include fallbacks, pos_tags, neg_tags. Remove hardcoded slots; load from SFXLibrary.
+- **utils/sfx_library.py**: Load prompts.json into SFXLibrary.get_slots() -> List[Slot]
+- **README.md**: Consolidate design info from sfxClanker.design.md, remove duplication.
+- **sfxClanker.design.md**: Archive or delete after consolidation.
+- **.clinerules/**: Keep as is.
+- **prompts.json**: Keep as source data.
+
+No new files.
+
+## [Functions]
+- **utils/slots.py**: get_slots() -> List[Slot] (load from SFXLibrary)
+- **utils/sfx_library.py**: New get_slots() -> List[Slot] (parse prompts.json)
+- **utils/query_builder.py**: No change.
+- **utils/search.py**: No change.
+
+## [Classes]
+- **SFXLibrary**: Add get_slots() method to return typed slots from prompts.json.
+
+## [Dependencies]
+No changes.
+
+## [Testing]
+- Update tests/test_slots.py to use new Slot with all fields.
+- Ensure pytest passes 100%.
+- mypy . passes 100%.
+
+## [Implementation Order]
+1. Update Slot TypedDict in utils/slots.py
+2. Add get_slots() in utils/sfx_library.py
+3. Update tests/test_slots.py
+4. Run pytest tests/ -v and mypy .
+5. Consolidate README.md
+6. Commit "Refactor: improve types and modularity"

@@ -132,6 +132,8 @@ def simple_search_slot(slot: Slot, flavor: str = "", deep_pool: bool = False, to
             if logger_callback:
                 logger_callback(f"[API] Success with query: {successful_query} ({len(results)} results)")
             break
+    # Sort by downloads desc
+    all_results = sorted(all_results, key=lambda r: r['num_downloads'], reverse=True)
     if not all_results:
         if logger_callback:
             logger_callback(f"[API] No results found for {slot['name']} after all queries")
