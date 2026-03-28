@@ -62,7 +62,7 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
                  manual_candidates: Optional[List[Candidate]] = None, manual_vol: Optional[float] = None, flavor: str = "", deep_pool: bool = False) -> bool:
     console_callback("─" * 37)
     console_callback(f"=== {item['filename']} ===")
-    console_callback(f"Searching for {item['filename']}...")
+    console_callback((f"Searching for {item['filename']}...", "query"))
     result = None
     used_query = None
     if item.get('manual_id'):
@@ -101,7 +101,7 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
         else:
             is_cc0 = True  # default
     if not result:
-        console_callback("Skipped: No results")
+        console_callback(("Skipped: No results", "skipped"))
         log_failed(output_dir, [item['slot']['display_name']])
         log_message(output_dir, f"Skipped {item['filename']}: no results")
         return False
@@ -128,7 +128,7 @@ def process_item(item: Dict[str, Any], api_keys: List[str], normalize: bool, ran
         return False
     os.remove(temp_path)
     log_message(output_dir, f"Generated {item['filename']} (query: {used_query})")
-    console_callback(f"Generated successfully")
+    console_callback(("Generated successfully", "success"))
     return True
 
 def run_headless() -> None:
@@ -370,7 +370,7 @@ class SFXClankerGUI(tk.Tk):
         flavor = self.flavor_var.get()
         deep_pool = self.deep_pool_var.get()
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            logger_callback = lambda msg, tag="": self.after(0, lambda m=msg, t=tag: self.update_console(m, t))
+            logger_callback = lambda msg: self.after(0, lambda m=msg: self.update_console(m))
             futures = {executor.submit(simple_search_slot, slot, flavor, deep_pool, self.api_keys, logger_callback, self.stop_event): slot for slot in slots_to_search}
             count = 0
             for future in concurrent.futures.as_completed(futures):
@@ -421,36 +421,38 @@ class SFXClankerGUI(tk.Tk):
     def poll_console(self) -> None:
         try:
             while True:
-                item = self.console_queue.get_nowait()
-                if isinstance(item, tuple):
-                    if item[0] == "progress":
-                        self.update_progress(item[1], item[2], item[3])
-                    elif item[0] == "finish":
-                        self.finish_generation(item[1])
+                msg = self.console_queue.get_nowait()
+                if isinstance(msg, tuple):
+                    if msg[0] == "progress":
+                        self.update_progress(msg[1], msg[2], msg[3])
+                    elif msg[0] == "finish":
+                        self.finish_generation(msg[1])
                     else:
-                        msg, tag = item
-                        self.update_console(msg, tag)
+                        # (msg, tag)
+                        self.update_console(msg[0], msg[1])
                 else:
-                    self.update_console(item)
+                    self.update_console(msg)
         except queue.Empty:
             pass
         self.after(100, self.poll_console)
 
     def update_console(self, msg: str, tag: str = "") -> None:
         if not tag:
-            if "SUCCESS" in msg or "Generated successfully" in msg:
-                tag = "success"
-            elif "SKIPPED" in msg or "Skipped:" in msg:
-                tag = "skipped"
-            elif "Query:" in msg or "Searching for" in msg:
-                tag = "query"
-            else:
-                tag = "info"
+            tag = self.get_tag(msg)
         self.console.config(state='normal')
         self.console.insert(tk.END, msg + "\n", tag)
         self.console.see(tk.END)
         self.console.config(state='disabled')
         self.console.update_idletasks()
+
+    def get_tag(self, msg: str) -> str:
+        if "SUCCESS" in msg or "Generated successfully" in msg or "Generated" in msg:
+            return "success"
+        if "SKIPPED" in msg or "Skipped:" in msg or "Skipped" in msg:
+            return "skipped"
+        if "Query:" in msg or "Searching for" in msg or "Searching" in msg or "API" in msg:
+            return "query"
+        return "info"
 
     def update_progress(self, completed: int, total: int, item: Dict[str, Any]) -> None:
         self.progress['value'] = completed
