@@ -286,6 +286,10 @@ class SFXClankerGUI(tk.Tk):
         # Console
         self.console = tk.Text(bottom_frame, height=15, bg='#0f0f0f', fg='white', insertbackground='white')
         self.console.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.console.tag_config("success", foreground="#00ff00")
+        self.console.tag_config("skipped", foreground="#ff6666")
+        self.console.tag_config("query", foreground="#66ccff")
+        self.console.tag_config("info", foreground="#aaaaaa")
         self.console.insert(tk.END, "Console output:\n")
         self.console.config(state='disabled')
         # Controls
@@ -430,8 +434,17 @@ class SFXClankerGUI(tk.Tk):
         self.after(100, self.poll_console)
 
     def update_console(self, msg: str) -> None:
+        tag = ""
+        if "SUCCESS" in msg or "Generated successfully" in msg:
+            tag = "success"
+        elif "SKIPPED" in msg or "Skipped:" in msg:
+            tag = "skipped"
+        elif "Query:" in msg or "Searching for" in msg:
+            tag = "query"
+        else:
+            tag = "info"
         self.console.config(state='normal')
-        self.console.insert(tk.END, msg + "\n")
+        self.console.insert(tk.END, msg + "\n", tag)
         self.console.see(tk.END)
         self.console.config(state='disabled')
         self.console.update_idletasks()
