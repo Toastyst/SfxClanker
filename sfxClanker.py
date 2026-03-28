@@ -370,7 +370,7 @@ class SFXClankerGUI(tk.Tk):
         flavor = self.flavor_var.get()
         deep_pool = self.deep_pool_var.get()
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            logger_callback = lambda msg: self.after(0, lambda m=msg: self.update_console(m))
+            logger_callback = lambda msg, tag="": self.after(0, lambda m=msg, t=tag: self.update_console(m, t))
             futures = {executor.submit(simple_search_slot, slot, flavor, deep_pool, self.api_keys, logger_callback, self.stop_event): slot for slot in slots_to_search}
             count = 0
             for future in concurrent.futures.as_completed(futures):
@@ -421,28 +421,31 @@ class SFXClankerGUI(tk.Tk):
     def poll_console(self) -> None:
         try:
             while True:
-                msg = self.console_queue.get_nowait()
-                if isinstance(msg, tuple):
-                    if msg[0] == "progress":
-                        self.update_progress(msg[1], msg[2], msg[3])
-                    elif msg[0] == "finish":
-                        self.finish_generation(msg[1])
+                item = self.console_queue.get_nowait()
+                if isinstance(item, tuple):
+                    if item[0] == "progress":
+                        self.update_progress(item[1], item[2], item[3])
+                    elif item[0] == "finish":
+                        self.finish_generation(item[1])
+                    else:
+                        msg, tag = item
+                        self.update_console(msg, tag)
                 else:
-                    self.update_console(msg)
+                    self.update_console(item)
         except queue.Empty:
             pass
         self.after(100, self.poll_console)
 
-    def update_console(self, msg: str) -> None:
-        tag = ""
-        if "SUCCESS" in msg or "Generated successfully" in msg:
-            tag = "success"
-        elif "SKIPPED" in msg or "Skipped:" in msg:
-            tag = "skipped"
-        elif "Query:" in msg or "Searching for" in msg:
-            tag = "query"
-        else:
-            tag = "info"
+    def update_console(self, msg: str, tag: str = "") -> None:
+        if not tag:
+            if "SUCCESS" in msg or "Generated successfully" in msg:
+                tag = "success"
+            elif "SKIPPED" in msg or "Skipped:" in msg:
+                tag = "skipped"
+            elif "Query:" in msg or "Searching for" in msg:
+                tag = "query"
+            else:
+                tag = "info"
         self.console.config(state='normal')
         self.console.insert(tk.END, msg + "\n", tag)
         self.console.see(tk.END)

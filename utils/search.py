@@ -110,13 +110,13 @@ def simple_search_slot(slot: Slot, flavor: str = "", deep_pool: bool = False, to
             break
         if i == 0:
             if logger_callback:
-                logger_callback(f"[API] Trying main query: {query}")
+                logger_callback(f"[API] Trying main query: {query}", "query")
         elif i <= len(slot['fallbacks']):
             if logger_callback:
-                logger_callback(f"[API] Main query failed → trying fallback {i}/{len(slot['fallbacks'])}: {query}")
+                logger_callback(f"[API] Main query failed → trying fallback {i}/{len(slot['fallbacks'])}: {query}", "query")
         else:
             if logger_callback:
-                logger_callback(f"[API] Fallbacks failed → trying broad query: {query}")
+                logger_callback(f"[API] Fallbacks failed → trying broad query: {query}", "query")
         if deep_pool:
             cache = load_cache()
             cached = cache.get(slot['name'], [])
